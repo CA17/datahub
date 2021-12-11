@@ -1,0 +1,2 @@
+data/geoip.data filter=lfs diff=lfs merge=lfs -text
+data/geosite.data filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,25 @@
+. {
+    dnssrc locals.conf {
+        expire 30s
+        path_reload 3s
+        max_fails 0
+        health_check 30s
+        to 114.114.114.114 223.5.5.5
+        policy round_robin
+        bootstrap 172.21.66.1
+        debug
+    }
+
+    dnssrc 172.21.66.137 192.168.0.1/24 {
+        expire 1s
+        path_reload 3s
+        max_fails 0
+        health_check 30s
+        to json-doh://dns.google/resolve
+        to 1.1.1.1
+        to 9.9.9.9
+        policy round_robin
+        bootstrap 172.21.66.1
+        debug
+    }
+}
