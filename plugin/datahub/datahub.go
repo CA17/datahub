@@ -48,7 +48,7 @@ func (dh *Datahub) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 func (dh *Datahub) Name() string { return "datahub" }
 
 func NewDatahub() *Datahub {
-	mc, _ := bigcache.NewBigCache(bigcache.DefaultConfig(time.Second * 3600))
+	mc, _ := bigcache.NewBigCache(bigcache.DefaultConfig(time.Second * 300))
 	return &Datahub{
 		nlmLock:              sync.RWMutex{},
 		dlmLock:              sync.RWMutex{},
@@ -60,19 +60,19 @@ func NewDatahub() *Datahub {
 	}
 }
 
-func (dh *Datahub) getDomainListByTag(tag string) *netutils.DomainList{
+func (dh *Datahub) getDomainListByTag(tag string) *netutils.DomainList {
 	dh.dlmLock.RLock()
 	defer dh.dlmLock.RUnlock()
 	return dh.geositeDoaminListMap[tag]
 }
 
-func (dh *Datahub) getNetListByTag(tag string) *netutils.NetList{
+func (dh *Datahub) getNetListByTag(tag string) *netutils.NetList {
 	dh.nlmLock.RLock()
 	defer dh.nlmLock.RUnlock()
 	return dh.geoipNetListMap[tag]
 }
 
-func (dh *Datahub) getKeywordTableByTag(tag string) *datatable.DataTable{
+func (dh *Datahub) getKeywordTableByTag(tag string) *datatable.DataTable {
 	dh.ktLock.RLock()
 	defer dh.ktLock.RUnlock()
 	return dh.keywordTableMap[tag]
@@ -134,7 +134,7 @@ func (dh *Datahub) reloadGeositeDmoainListByTag(tags []string, cache bool) error
 
 func (dh *Datahub) parseKeywordTableByTag(tag string, from string) error {
 	tag = strings.ToUpper(tag)
-	table, err := datatable.NewFromArgs(datatable.DateTypeKeywordTable, tag, from )
+	table, err := datatable.NewFromArgs(datatable.DateTypeKeywordTable, tag, from)
 	if err != nil {
 		return err
 	}
@@ -169,6 +169,6 @@ func (dh *Datahub) debugPrint() {
 		log.Infof("geosite_cache %s full_domain:%d regex_domain:%d", k, v.FullLen(), v.RegexLen())
 	}
 	for k, v := range dh.keywordTableMap {
-		log.Infof("keyword_table %s total %d",k, v.Len())
+		log.Infof("keyword_table %s total %d", k, v.Len())
 	}
 }

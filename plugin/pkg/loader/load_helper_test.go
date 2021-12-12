@@ -1,9 +1,8 @@
 package loader
 
 import (
+	"strings"
 	"testing"
-
-	"github.com/ca17/datahub/plugin/pkg/v2data"
 )
 
 func TestLoadGeoipCn(t *testing.T) {
@@ -35,8 +34,11 @@ func TestLoadGeositeCn(t *testing.T) {
 		if count >= 200 {
 			break
 		}
+		if ip.GetCountryCode() != "CN" {
+			continue
+		}
 		for _, domain := range ip.GetDomain() {
-			if domain.Type == v2data.Domain_Plain {
+			if strings.Contains(domain.GetValue(), "qq.com") {
 				t.Log(domain.GetValue())
 			}
 		}

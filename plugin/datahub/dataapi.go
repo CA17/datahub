@@ -3,6 +3,7 @@ package datahub
 import (
 	"net"
 	"strings"
+	"time"
 
 	"github.com/c-robinson/iplib"
 	"github.com/ca17/datahub/plugin/pkg/loader"
@@ -55,7 +56,7 @@ func (dh *Datahub) MatchKeyword(tag string, name string) bool {
 	tag = strings.ToUpper(tag)
 	dh.ktLock.RLock()
 	defer dh.ktLock.RUnlock()
-	if list := dh.getKeywordTableByTag(tag); list!=nil {
+	if list := dh.getKeywordTableByTag(tag); list != nil {
 		return list.Match(name)
 	}
 	return false
@@ -65,17 +66,49 @@ func (dh *Datahub) MatchKeyword(tag string, name string) bool {
 func (dh *Datahub) MixMatch(tag string, name string) bool {
 	tag = strings.ToUpper(tag)
 
-	if list := dh.getDomainListByTag(tag); list!=nil {
+	if list := dh.getDomainListByTag(tag); list != nil {
 		if list.MixMatch(name) {
 			return true
 		}
 	}
 
-	if list := dh.getKeywordTableByTag(tag); list!=nil {
+	if list := dh.getKeywordTableByTag(tag); list != nil {
 		if list.Match(name) {
 			return true
 		}
 	}
 
+	return false
+}
+
+var _mateched = []byte("1")
+
+// MixMatchTags 混合模式匹配域名
+func (dh *Datahub) MixMatchTags(tags []string, name string) bool {
+	var start = time.Now()
+	defer func() {
+		log.Debugf("Match %s cast %d ns", name, time.Now().Sub(start).Nanoseconds())
+	}()
+	for _, tag := range tags {
+		tag = strings.ToUpper(tag)
+
+		_, err := dh.matchCache.Get(tag + name)
+		if err == nil {
+			return true
+		}
+
+		if list := dh.getDomainListByTag(tag); list != nil {
+			if list.MixMatch(name) {
+				_ = dh.matchCache.Set(tag+name, _mateched)
+				return true
+			}
+		}
+		if list := dh.getKeywordTableByTag(tag); list != nil {
+			if list.Match(name) {
+				_ = dh.matchCache.Set(tag+name, _mateched)
+				return true
+			}
+		}
+	}
 	return false
 }

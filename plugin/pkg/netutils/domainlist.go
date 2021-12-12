@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	MatchFullType    = "full"
-	MatchDomainType  = "domain"
-	MatchRegexType   = "regex"
+	MatchFullType   = "full"
+	MatchDomainType = "domain"
+	MatchRegexType  = "regex"
 )
 
 type DomainList struct {
 	sync.RWMutex
-	fullTable     *bigcache.BigCache
-	regexTable    []*regexp.Regexp
+	fullTable  *bigcache.BigCache
+	regexTable []*regexp.Regexp
 }
 
 func NewDomainList() *DomainList {
@@ -107,7 +107,6 @@ func (l *DomainList) MatchRegex(name string) bool {
 	return false
 }
 
-
 func (l *DomainList) MatchDomain(name string) bool {
 	idx := make([]int, 1, 6)
 	off := 0
@@ -123,11 +122,10 @@ func (l *DomainList) MatchDomain(name string) bool {
 	for i := range idx {
 		p := idx[len(idx)-1-i]
 		qname := name[p:]
-		_, err := l.fullTable.Get(qname)
-		if err != nil {
-			return false
+		r, err := l.fullTable.Get(qname)
+		if err == nil && len(r) > 0 {
+			return true
 		}
-		return true
 	}
 	return false
 }
