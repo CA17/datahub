@@ -64,6 +64,13 @@ func (c *LoadOnceCache) Load(key string) (interface{}, bool) {
 	return data, ok
 }
 
+
+func (c *LoadOnceCache) ClearAll() {
+	c.l.Lock()
+	defer c.l.Unlock()
+	c.cache = make(map[string]interface{})
+}
+
 func (c *LoadOnceCache) LoadFromCacheOrRawDisk(file string) (interface{}, []byte, error) {
 	// load from cache
 	data, ok := c.Load(file)

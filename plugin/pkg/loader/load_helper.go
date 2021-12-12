@@ -32,6 +32,10 @@ const (
 	cacheTTL = time.Second * 30
 )
 
+func RemoveCache(key string) {
+	matcherCache.Remove(key)
+}
+
 // mustHaveAttr checks if attr has all wanted attrs.
 func mustHaveAttr(attr, wanted []string) bool {
 	if len(wanted) == 0 {
@@ -56,6 +60,43 @@ func mustHaveAttr(attr, wanted []string) bool {
 	return true
 }
 
+func LoadGeoIPFromDAT(file, tag string) (*v2data.GeoIP, error) {
+	geoIPList, err := LoadGeoIPListFromDAT(file)
+	if err != nil {
+		return nil, err
+	}
+
+	entry := geoIPList.GetEntry()
+	upperTag := strings.ToUpper(tag)
+	for i := range entry {
+		if strings.ToUpper(entry[i].CountryCode) == upperTag {
+			return entry[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("can not find tag %s in %s", tag, file)
+}
+
+func LoadGeoIPFromDATByTags(file string, tags []string) ([]*v2data.GeoIP, error) {
+	geoIPList, err := LoadGeoIPListFromDAT(file)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []*v2data.GeoIP
+	for _, tag := range tags {
+		entry := geoIPList.GetEntry()
+		upperTag := strings.ToUpper(tag)
+		for i := range entry {
+			if strings.ToUpper(entry[i].CountryCode) == upperTag {
+				items = append(items, entry[i])
+			}
+		}
+	}
+
+	return items, nil
+}
+
 func LoadGeoSiteFromDAT(file, countryCode string) (*v2data.GeoSite, error) {
 	geoSiteList, err := LoadGeoSiteList(file)
 	if err != nil {
@@ -71,6 +112,25 @@ func LoadGeoSiteFromDAT(file, countryCode string) (*v2data.GeoSite, error) {
 	}
 
 	return nil, fmt.Errorf("can not find category %s in %s", countryCode, file)
+}
+
+func LoadGeoSiteFromDATByTags(file string, tags []string) ([]*v2data.GeoSite, error) {
+	geoSiteList, err := LoadGeoSiteList(file)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []*v2data.GeoSite
+	for _, tag := range tags {
+		countryCode := strings.ToUpper(tag)
+		entry := geoSiteList.GetEntry()
+		for i := range entry {
+			if strings.ToUpper(entry[i].CountryCode) == countryCode {
+				items = append(items, entry[i])
+			}
+		}
+	}
+	return items, nil
 }
 
 func LoadGeoSiteList(file string) (*v2data.GeoSiteList, error) {
@@ -91,7 +151,6 @@ func LoadGeoSiteList(file string) (*v2data.GeoSiteList, error) {
 
 	return geoSiteList, nil
 }
-
 
 func LoadGeoIPListFromDAT(file string) (*v2data.GeoIPList, error) {
 	data, raw, err := matcherCache.LoadFromCacheOrRawDisk(file)

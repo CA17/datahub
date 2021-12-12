@@ -1,7 +1,7 @@
 package main
 
 import (
-	_ "github.com/ca17/dnssrc/plugin/dnssrc"
+	_ "github.com/ca17/datahub/plugin/datahub"
 	"github.com/coredns/coredns/core/dnsserver"
 	_ "github.com/coredns/coredns/core/plugin"
 	"github.com/coredns/coredns/coremain"
