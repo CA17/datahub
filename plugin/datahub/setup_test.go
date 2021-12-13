@@ -16,12 +16,13 @@ func Test_parseConfig(t *testing.T) {
         geodat_upgrade_url http://xxxx.com
         geodat_upgrade_cron 0 30 0 * * *
         keyword_table cn ../../data/keyword_cn.txt
+        domain_table cn ../../data/domain_cn.txt
+        netlist_table cn ../../data/netlist_cn.txt
         reload @every 3s
     }`)
 	ecs, err := parseConfig(c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ecs.debugPrint()
 	t.Log(ecs)
 }

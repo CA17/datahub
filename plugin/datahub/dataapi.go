@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
+	"github.com/ca17/datahub/plugin/pkg/datatable"
 	"github.com/ca17/datahub/plugin/pkg/loader"
 	"github.com/ca17/datahub/plugin/pkg/v2data"
 )
@@ -22,8 +23,8 @@ func (dh *Datahub) LoadGeoSiteFromDAT(country string) (*v2data.GeoSite, error) {
 
 func (dh *Datahub) MatchGeoip(tag string, ip net.IP) bool {
 	tag = strings.ToUpper(tag)
-	dh.nlmLock.RLock()
-	defer dh.nlmLock.RUnlock()
+	dh.geonlmLock.RLock()
+	defer dh.geonlmLock.RUnlock()
 	inet := iplib.NewNet(ip, 32)
 	if list, ok := dh.geoipNetListMap[tag]; ok {
 		return list.MatchNet(inet)
@@ -33,8 +34,8 @@ func (dh *Datahub) MatchGeoip(tag string, ip net.IP) bool {
 
 func (dh *Datahub) MatchGeoNet(tag string, net iplib.Net) bool {
 	tag = strings.ToUpper(tag)
-	dh.nlmLock.RLock()
-	defer dh.nlmLock.RUnlock()
+	dh.geonlmLock.RLock()
+	defer dh.geonlmLock.RUnlock()
 	if list, ok := dh.geoipNetListMap[tag]; ok {
 		return list.MatchNet(net)
 	}
@@ -44,8 +45,8 @@ func (dh *Datahub) MatchGeoNet(tag string, net iplib.Net) bool {
 // MatchGeosite 匹配 Geosite 域名
 func (dh *Datahub) MatchGeosite(matchType, tag string, name string) bool {
 	tag = strings.ToUpper(tag)
-	dh.dlmLock.RLock()
-	defer dh.dlmLock.RUnlock()
+	dh.geodlmLock.RLock()
+	defer dh.geodlmLock.RUnlock()
 	if list, ok := dh.geositeDoaminListMap[tag]; ok {
 		return list.Match(matchType, name)
 	}
@@ -54,25 +55,31 @@ func (dh *Datahub) MatchGeosite(matchType, tag string, name string) bool {
 
 func (dh *Datahub) MatchKeyword(tag string, name string) bool {
 	tag = strings.ToUpper(tag)
-	dh.ktLock.RLock()
-	defer dh.ktLock.RUnlock()
-	if list := dh.getKeywordTableByTag(tag); list != nil {
+	if list := dh.getDataTableByTag(datatable.DateTypeKeywordTable, tag); list != nil {
 		return list.Match(name)
 	}
 	return false
+}
+
+func (dh *Datahub) MatchEcs(tag string, name string) net.IP {
+	tag = strings.ToUpper(tag)
+	if list := dh.getDataTableByTag(datatable.DateTypeEcsTable, tag); list != nil {
+		return list.GetData().(*datatable.EcsData).MatchEcsIP(name)
+	}
+	return nil
 }
 
 // MixMatch 混合模式匹配域名
 func (dh *Datahub) MixMatch(tag string, name string) bool {
 	tag = strings.ToUpper(tag)
 
-	if list := dh.getDomainListByTag(tag); list != nil {
+	if list := dh.getGeoDomainListByTag(tag); list != nil {
 		if list.MixMatch(name) {
 			return true
 		}
 	}
 
-	if list := dh.getKeywordTableByTag(tag); list != nil {
+	if list := dh.getDataTableByTag(datatable.DateTypeKeywordTable, tag); list != nil {
 		if list.Match(name) {
 			return true
 		}
@@ -97,13 +104,13 @@ func (dh *Datahub) MixMatchTags(tags []string, name string) bool {
 			return true
 		}
 
-		if list := dh.getDomainListByTag(tag); list != nil {
+		if list := dh.getGeoDomainListByTag(tag); list != nil {
 			if list.MixMatch(name) {
 				_ = dh.matchCache.Set(tag+name, _mateched)
 				return true
 			}
 		}
-		if list := dh.getKeywordTableByTag(tag); list != nil {
+		if list := dh.getDataTableByTag(datatable.DateTypeKeywordTable, tag); list != nil {
 			if list.Match(name) {
 				_ = dh.matchCache.Set(tag+name, _mateched)
 				return true

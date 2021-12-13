@@ -31,6 +31,29 @@ func NewDomainList() *DomainList {
 	}
 }
 
+func (l *DomainList) Add(matchType string, name string) bool {
+	switch matchType {
+	case MatchFullType:
+		err := l.fullTable.Set(name, []byte("1"))
+		if err != nil {
+			return false
+		}
+		return true
+	case MatchRegexType:
+		if l.regexTable == nil {
+			l.regexTable = make([]*regexp.Regexp, 0)
+		}
+		re, err := regexp.Compile(name)
+		if err == nil {
+			l.regexTable = append(l.regexTable, re)
+			return true
+		}
+		return false
+	default:
+		return false
+	}
+}
+
 func (l *DomainList) FullLen() int {
 	return l.fullTable.Len()
 }
@@ -128,4 +151,28 @@ func (l *DomainList) MatchDomain(name string) bool {
 		}
 	}
 	return false
+}
+
+func (l *DomainList) ForEach(f func(name string), max int) {
+	c := 0
+	iter := l.fullTable.Iterator()
+	for iter.SetNext() {
+		current, err := iter.Value()
+		if err == nil {
+			if c >= max/2 {
+				break
+			}
+			f(current.Key())
+			c++
+		}
+	}
+	l.RLock()
+	defer l.RUnlock()
+	for _, d := range l.regexTable {
+		if c >= max {
+			return
+		}
+		f(d.String())
+		c++
+	}
 }

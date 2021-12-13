@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"sync"
+
+	"github.com/c-robinson/iplib"
 )
 
 type keywordData struct {
@@ -34,7 +36,7 @@ func (k *keywordData) ParseFile(r io.Reader) error {
 			if len(attrs) != 2 {
 				continue
 			}
-			if k.tag == strings.ToUpper(attrs[0]){
+			if k.tag == strings.ToUpper(attrs[0]) {
 				k.data = append(k.data, attrs[1])
 			}
 		} else {
@@ -47,6 +49,9 @@ func (k *keywordData) ParseFile(r io.Reader) error {
 func (k *keywordData) ParseLines(lines []string) {
 	k.Lock()
 	defer k.Unlock()
+	if k.data == nil {
+		k.data = make([]string, 0)
+	}
 	for _, line := range lines {
 		if i := strings.IndexByte(line, '#'); i >= 0 {
 			line = line[:i]
@@ -80,21 +85,25 @@ func (k *keywordData) LessString() string {
 	k.RLock()
 	defer k.RUnlock()
 	sb := strings.Builder{}
-	sb.WriteString("keywordData:{")
+	sb.WriteString("keywordData(Top10):{")
 	c := 0
 	for _, v := range k.data {
 		if c >= 10 {
-			sb.WriteString("......")
 			break
+		} else {
+			sb.WriteString(",")
 		}
 		sb.WriteString(v)
-		sb.WriteString(",")
 		c += 1
 	}
+	sb.WriteString("...}")
 	return sb.String()
 }
 
 func (k *keywordData) ParseInline(ws []string) {
+	if k.data == nil {
+		k.data = make([]string, 0)
+	}
 	if len(ws) < 2 {
 		fmt.Println("inline len must > 2, format is  tag word...")
 		return
@@ -109,4 +118,8 @@ func (k *keywordData) Len() int {
 	k.RLock()
 	defer k.RUnlock()
 	return len(k.data)
+}
+
+func (k *keywordData) MatchNet(n iplib.Net) bool {
+	return false
 }

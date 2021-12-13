@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/c-robinson/iplib"
+	"github.com/ca17/dnssrc/plugin/pkg/netutils"
 )
 
 type NetList struct {
@@ -26,6 +27,17 @@ func (l *NetList) Add(inet iplib.Net) {
 	l.Lock()
 	defer l.Unlock()
 	l.data = append(l.data, inet)
+}
+
+func (l *NetList) AddByString(nstr string) bool {
+	inet, err := netutils.ParseIpNet(nstr)
+	if err != nil {
+		return false
+	}
+	l.Lock()
+	defer l.Unlock()
+	l.data = append(l.data, inet)
+	return true
 }
 
 func (l *NetList) Sort() {
@@ -53,4 +65,36 @@ func (l *NetList) MatchNet(lookingFor iplib.Net) bool {
 		}
 	}
 	return false
+}
+
+func (l *NetList) FindNet(lookingFor iplib.Net) iplib.Net {
+	l.RLock()
+	defer l.RUnlock()
+	var low int = 0
+	var high int = len(l.data) - 1
+	for low <= high {
+		var mid int = low + (high-low)/2
+		var midValue = l.data[mid]
+		if midValue.ContainsNet(lookingFor) {
+			return midValue
+		} else if iplib.CompareNets(midValue, lookingFor) > 0 {
+			high = mid - 1
+		} else {
+			low = mid + 1
+		}
+	}
+	return nil
+}
+
+func (l *NetList) ForEach(f func(net iplib.Net), max int) {
+	l.RLock()
+	defer l.RUnlock()
+	c := 0
+	for _, d := range l.data {
+		if c >= max {
+			return
+		}
+		f(d)
+		c++
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/c-robinson/iplib"
 	"github.com/ca17/datahub/plugin/pkg/common"
 	"github.com/ca17/datahub/plugin/pkg/httpc"
 	"github.com/ca17/datahub/plugin/pkg/validutil"
@@ -16,8 +17,11 @@ import (
 const (
 	WhichTypePath = iota
 	WhichTypeUrl
-	WhichTypeInline      // Dummy
-	DateTypeKeywordTable = "keyword_table"
+	WhichTypeInline         // Dummy
+	DateTypeKeywordTable    = "keyword_table"
+	DateTypeNetlistTable    = "netlist_table"
+	DateTypeDomainlistTable = "domain_table"
+	DateTypeEcsTable        = "ecs_table"
 )
 
 type TextData interface {
@@ -25,6 +29,7 @@ type TextData interface {
 	ParseLines(lines []string)
 	ParseInline(ws []string)
 	Match(name string) bool
+	MatchNet(inet iplib.Net) bool
 	LessString() string
 	Len() int
 }
@@ -41,18 +46,18 @@ type DataTable struct {
 	rdata       TextData
 }
 
-func NewFromArgs(datatype string, tag string, from string) (*DataTable, error) {
+func NewFromArgs(datatype string, tag string, from string) *DataTable {
 	tag = strings.ToUpper(tag)
 	if validutil.IsURL(from) {
-		return NewDataTable(datatype, tag, WhichTypeUrl, "", from), nil
+		return NewDataTable(datatype, tag, WhichTypeUrl, "", from, "")
 	}
 	if common.FileExists(from) {
-		return NewDataTable(datatype, tag, WhichTypePath, from, ""), nil
+		return NewDataTable(datatype, tag, WhichTypePath, from, "", "")
 	}
-	return nil, fmt.Errorf("invalid datatable new parameters, %s not exists", from)
+	return NewDataTable(datatype, tag, WhichTypeInline, "", "", from)
 }
 
-func NewDataTable(datatype string, tag string, wtype int, path, url string) *DataTable {
+func NewDataTable(datatype string, tag string, wtype int, path, url string, inline string) *DataTable {
 	dt := &DataTable{
 		RWMutex:     sync.RWMutex{},
 		tag:         tag,
@@ -66,6 +71,17 @@ func NewDataTable(datatype string, tag string, wtype int, path, url string) *Dat
 	switch datatype {
 	case DateTypeKeywordTable:
 		dt.rdata = newKeywordData(tag)
+	case DateTypeNetlistTable:
+		dt.rdata = newNetlistData(tag)
+	case DateTypeDomainlistTable:
+		dt.rdata = newDomainData(tag)
+	case DateTypeEcsTable:
+		dt.rdata = NewEcsData(tag)
+	default:
+		return nil
+	}
+	if inline != "" && strings.HasPrefix(inline, tag) {
+		dt.rdata.ParseLines(strings.Fields(inline))
 	}
 	return dt
 }
@@ -164,4 +180,8 @@ func (kt *DataTable) String() string {
 	sb.WriteString(kt.rdata.LessString())
 	sb.WriteString("}")
 	return sb.String()
+}
+
+func (kt *DataTable) GetData() TextData {
+	return kt.rdata
 }

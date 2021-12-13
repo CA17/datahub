@@ -14,6 +14,7 @@ import (
 	"github.com/ca17/datahub/plugin/pkg/v2data"
 	"github.com/coredns/coredns/plugin"
 	"github.com/miekg/dns"
+	"github.com/orcaman/concurrent-map"
 	"github.com/robfig/cron/v3"
 )
 
@@ -22,23 +23,26 @@ var cronParser = cron.NewParser(
 )
 
 type Datahub struct {
-	nlmLock              sync.RWMutex
-	dlmLock              sync.RWMutex
-	ktLock               sync.RWMutex
-	Next                 plugin.Handler
-	geoipCacheTags       []string
-	geositeCacheTags     []string
+	geonlmLock           sync.RWMutex
+	geodlmLock           sync.RWMutex
 	geoipNetListMap      map[string]*netutils.NetList
 	geositeDoaminListMap map[string]*netutils.DomainList
-	keywordTableMap      map[string]*datatable.DataTable
-	geoipPath            string
-	geositePath          string
-	geodatUpgradeUrl     string
-	geodatUpgradeCron    string
-	sched                *cron.Cron
-	matchCache           *bigcache.BigCache
-	reloadCron           string
-	debug                bool
+	keywordTableMap      cmap.ConcurrentMap
+	netlistTableMap      cmap.ConcurrentMap
+	domainTableMap       cmap.ConcurrentMap
+	ecsTableMap          cmap.ConcurrentMap
+	//
+	Next              plugin.Handler
+	geoipCacheTags    []string
+	geositeCacheTags  []string
+	geoipPath         string
+	geositePath       string
+	geodatUpgradeUrl  string
+	geodatUpgradeCron string
+	sched             *cron.Cron
+	matchCache        *bigcache.BigCache
+	reloadCron        string
+	debug             bool
 }
 
 func (dh *Datahub) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -50,32 +54,45 @@ func (dh *Datahub) Name() string { return "datahub" }
 func NewDatahub() *Datahub {
 	mc, _ := bigcache.NewBigCache(bigcache.DefaultConfig(time.Second * 300))
 	return &Datahub{
-		nlmLock:              sync.RWMutex{},
-		dlmLock:              sync.RWMutex{},
+		geonlmLock:           sync.RWMutex{},
+		geodlmLock:           sync.RWMutex{},
 		geoipNetListMap:      make(map[string]*netutils.NetList),
 		geositeDoaminListMap: make(map[string]*netutils.DomainList),
-		keywordTableMap:      make(map[string]*datatable.DataTable),
+		keywordTableMap:      cmap.New(),
+		netlistTableMap:      cmap.New(),
+		domainTableMap:       cmap.New(),
+		ecsTableMap:          cmap.New(),
 		matchCache:           mc,
 		sched:                cron.New(cron.WithParser(cronParser)),
 	}
 }
 
-func (dh *Datahub) getDomainListByTag(tag string) *netutils.DomainList {
-	dh.dlmLock.RLock()
-	defer dh.dlmLock.RUnlock()
+func (dh *Datahub) getGeoDomainListByTag(tag string) *netutils.DomainList {
+	dh.geodlmLock.RLock()
+	defer dh.geodlmLock.RUnlock()
 	return dh.geositeDoaminListMap[tag]
 }
 
-func (dh *Datahub) getNetListByTag(tag string) *netutils.NetList {
-	dh.nlmLock.RLock()
-	defer dh.nlmLock.RUnlock()
-	return dh.geoipNetListMap[tag]
-}
-
-func (dh *Datahub) getKeywordTableByTag(tag string) *datatable.DataTable {
-	dh.ktLock.RLock()
-	defer dh.ktLock.RUnlock()
-	return dh.keywordTableMap[tag]
+func (dh *Datahub) getDataTableByTag(dtyope string, tag string) *datatable.DataTable {
+	switch dtyope {
+	case datatable.DateTypeEcsTable:
+		if v, ok := dh.ecsTableMap.Get(tag); ok {
+			return v.(*datatable.DataTable)
+		}
+	case datatable.DateTypeNetlistTable:
+		if v, ok := dh.netlistTableMap.Get(tag); ok {
+			return v.(*datatable.DataTable)
+		}
+	case datatable.DateTypeKeywordTable:
+		if v, ok := dh.keywordTableMap.Get(tag); ok {
+			return v.(*datatable.DataTable)
+		}
+	case datatable.DateTypeDomainlistTable:
+		if v, ok := dh.domainTableMap.Get(tag); ok {
+			return v.(*datatable.DataTable)
+		}
+	}
+	return nil
 }
 
 // 根据 tag 从 geoip.dat 加载 geoip 数据
@@ -87,8 +104,8 @@ func (dh *Datahub) reloadGeoipNetListByTag(tags []string, cache bool) error {
 	if err != nil {
 		return err
 	}
-	dh.nlmLock.Lock()
-	defer dh.nlmLock.Unlock()
+	dh.geonlmLock.Lock()
+	defer dh.geonlmLock.Unlock()
 	for _, dataitems := range tagitems {
 		var nets []iplib.Net
 		for _, data := range dataitems.GetCidr() {
@@ -111,8 +128,8 @@ func (dh *Datahub) reloadGeositeDmoainListByTag(tags []string, cache bool) error
 	if err != nil {
 		return err
 	}
-	dh.dlmLock.Lock()
-	defer dh.dlmLock.Unlock()
+	dh.geodlmLock.Lock()
+	defer dh.geodlmLock.Unlock()
 	for _, dataitems := range tagitems {
 		var sites []string
 		var regexs []string
@@ -132,17 +149,26 @@ func (dh *Datahub) reloadGeositeDmoainListByTag(tags []string, cache bool) error
 	return nil
 }
 
-func (dh *Datahub) parseKeywordTableByTag(tag string, from string) error {
+func (dh *Datahub) parseDataTableByTag(datatype string, tag string, from string) {
 	tag = strings.ToUpper(tag)
-	table, err := datatable.NewFromArgs(datatable.DateTypeKeywordTable, tag, from)
-	if err != nil {
-		return err
+	switch datatype {
+	case datatable.DateTypeKeywordTable:
+		table := datatable.NewFromArgs(datatable.DateTypeKeywordTable, tag, from)
+		table.LoadAll()
+		dh.keywordTableMap.Set(tag, table)
+	case datatable.DateTypeDomainlistTable:
+		table := datatable.NewFromArgs(datatable.DateTypeDomainlistTable, tag, from)
+		table.LoadAll()
+		dh.domainTableMap.Set(tag, table)
+	case datatable.DateTypeNetlistTable:
+		table := datatable.NewFromArgs(datatable.DateTypeNetlistTable, tag, from)
+		table.LoadAll()
+		dh.netlistTableMap.Set(tag, table)
+	case datatable.DateTypeEcsTable:
+		table := datatable.NewFromArgs(datatable.DateTypeEcsTable, tag, from)
+		table.LoadAll()
+		dh.ecsTableMap.Set(tag, table)
 	}
-	table.LoadAll()
-	dh.ktLock.Lock()
-	defer dh.ktLock.Unlock()
-	dh.keywordTableMap[tag] = table
-	return nil
 }
 
 func (dh *Datahub) OnStartup() error {
@@ -153,22 +179,4 @@ func (dh *Datahub) OnStartup() error {
 func (dh *Datahub) OnShutdown() error {
 	dh.stopSched()
 	return nil
-}
-
-func (dh *Datahub) debugPrint() {
-	log.Info("geoip_path ", dh.geositePath)
-	log.Info("geosite_path ", dh.geositePath)
-	log.Info("geoip_cache ", dh.geoipCacheTags)
-	log.Info("geosite_cache ", dh.geositeCacheTags)
-	log.Info("geodat_upgrade_url ", dh.geodatUpgradeUrl)
-	log.Info("geodat_upgrade_cron ", dh.geodatUpgradeCron)
-	for k, v := range dh.geoipNetListMap {
-		log.Infof("geoip_cache %s total %d", k, v.Len())
-	}
-	for k, v := range dh.geositeDoaminListMap {
-		log.Infof("geosite_cache %s full_domain:%d regex_domain:%d", k, v.FullLen(), v.RegexLen())
-	}
-	for k, v := range dh.keywordTableMap {
-		log.Infof("keyword_table %s total %d", k, v.Len())
-	}
 }
