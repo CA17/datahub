@@ -8,6 +8,7 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/ca17/datahub/plugin/pkg/datatable"
 	"github.com/ca17/datahub/plugin/pkg/loader"
+	"github.com/ca17/datahub/plugin/pkg/netutils"
 	"github.com/ca17/datahub/plugin/pkg/v2data"
 )
 
@@ -23,10 +24,8 @@ func (dh *Datahub) LoadGeoSiteFromDAT(country string) (*v2data.GeoSite, error) {
 
 func (dh *Datahub) MatchGeoip(tag string, ip net.IP) bool {
 	tag = strings.ToUpper(tag)
-	dh.geonlmLock.RLock()
-	defer dh.geonlmLock.RUnlock()
 	inet := iplib.NewNet(ip, 32)
-	if list, ok := dh.geoipNetListMap[tag]; ok {
+	if list := dh.getGeoNetListByTag(tag); list != nil {
 		return list.MatchNet(inet)
 	}
 	return false
@@ -34,10 +33,54 @@ func (dh *Datahub) MatchGeoip(tag string, ip net.IP) bool {
 
 func (dh *Datahub) MatchGeoNet(tag string, net iplib.Net) bool {
 	tag = strings.ToUpper(tag)
-	dh.geonlmLock.RLock()
-	defer dh.geonlmLock.RUnlock()
-	if list, ok := dh.geoipNetListMap[tag]; ok {
+	if list := dh.getGeoNetListByTag(tag); list != nil {
 		return list.MatchNet(net)
+	}
+	return false
+}
+
+// MixMatchNetByStr 混合模式匹配网络地址
+func (dh *Datahub) MixMatchNetByStr(tag string, ns string) bool {
+	inet, err := netutils.ParseIpNet(ns)
+	if err != nil {
+		return false
+	}
+	return dh.MixMatchNet(tag, inet)
+}
+
+// MixMatchNet 混合模式匹配网络地址
+func (dh *Datahub) MixMatchNet(tag string, ns iplib.Net) bool {
+	tag = strings.ToUpper(tag)
+	// 匹配自定义网络地址列表
+	if list := dh.getDataTableByTag(datatable.DateTypeNetlistTable, tag); list != nil &&
+		list.GetData().(*datatable.NetlistData).MatchNet(ns) {
+		return true
+	}
+
+	// 匹配Geodat网络地址列表
+	if list := dh.getGeoNetListByTag(tag); list != nil && list.MatchNet(ns) {
+		return true
+	}
+
+	return false
+}
+
+// MatchNetByStr 匹配自定义网络地址
+func (dh *Datahub) MatchNetByStr(tag string, ns string) bool {
+	inet, err := netutils.ParseIpNet(ns)
+	if err != nil {
+		return false
+	}
+	return dh.MatchNet(tag, inet)
+}
+
+// MatchNet 匹配自定义网络地址
+func (dh *Datahub) MatchNet(tag string, ns iplib.Net) bool {
+	tag = strings.ToUpper(tag)
+	// 匹配自定义网络地址列表
+	if list := dh.getDataTableByTag(datatable.DateTypeNetlistTable, tag); list != nil &&
+		list.GetData().(*datatable.NetlistData).MatchNet(ns) {
+		return true
 	}
 	return false
 }
@@ -45,14 +88,13 @@ func (dh *Datahub) MatchGeoNet(tag string, net iplib.Net) bool {
 // MatchGeosite 匹配 Geosite 域名
 func (dh *Datahub) MatchGeosite(matchType, tag string, name string) bool {
 	tag = strings.ToUpper(tag)
-	dh.geodlmLock.RLock()
-	defer dh.geodlmLock.RUnlock()
-	if list, ok := dh.geositeDoaminListMap[tag]; ok {
+	if list := dh.getGeoDomainListByTag(tag); list != nil {
 		return list.Match(matchType, name)
 	}
 	return false
 }
 
+// MatchKeyword 域名关键词匹配
 func (dh *Datahub) MatchKeyword(tag string, name string) bool {
 	tag = strings.ToUpper(tag)
 	if list := dh.getDataTableByTag(datatable.DateTypeKeywordTable, tag); list != nil {
@@ -61,6 +103,7 @@ func (dh *Datahub) MatchKeyword(tag string, name string) bool {
 	return false
 }
 
+// MatchEcs 匹配 ECS IP
 func (dh *Datahub) MatchEcs(tag string, name string) net.IP {
 	tag = strings.ToUpper(tag)
 	if list := dh.getDataTableByTag(datatable.DateTypeEcsTable, tag); list != nil {
@@ -73,14 +116,24 @@ func (dh *Datahub) MatchEcs(tag string, name string) net.IP {
 func (dh *Datahub) MixMatch(tag string, name string) bool {
 	tag = strings.ToUpper(tag)
 
-	if list := dh.getGeoDomainListByTag(tag); list != nil {
-		if list.MixMatch(name) {
+	// 匹配自定义域名表
+	if list := dh.getDataTableByTag(datatable.DateTypeDomainlistTable, tag); list != nil {
+		if list.Match(name) {
+			_ = dh.matchCache.Set(tag+name, _mateched)
 			return true
 		}
 	}
 
+	// 匹配关键词表
 	if list := dh.getDataTableByTag(datatable.DateTypeKeywordTable, tag); list != nil {
 		if list.Match(name) {
+			return true
+		}
+	}
+
+	// 匹配 Geodat 数据
+	if list := dh.getGeoDomainListByTag(tag); list != nil {
+		if list.MixMatch(name) {
 			return true
 		}
 	}
@@ -104,18 +157,30 @@ func (dh *Datahub) MixMatchTags(tags []string, name string) bool {
 			return true
 		}
 
-		if list := dh.getGeoDomainListByTag(tag); list != nil {
-			if list.MixMatch(name) {
+		// 匹配自定义域名表
+		if list := dh.getDataTableByTag(datatable.DateTypeDomainlistTable, tag); list != nil {
+			if list.Match(name) {
 				_ = dh.matchCache.Set(tag+name, _mateched)
 				return true
 			}
 		}
+
+		// 匹配关键词表
 		if list := dh.getDataTableByTag(datatable.DateTypeKeywordTable, tag); list != nil {
 			if list.Match(name) {
 				_ = dh.matchCache.Set(tag+name, _mateched)
 				return true
 			}
 		}
+
+		// 匹配 Geodat 数据
+		if list := dh.getGeoDomainListByTag(tag); list != nil {
+			if list.MixMatch(name) {
+				_ = dh.matchCache.Set(tag+name, _mateched)
+				return true
+			}
+		}
+
 	}
 	return false
 }

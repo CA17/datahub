@@ -70,6 +70,12 @@ func NewDatahub() *Datahub {
 	return hub
 }
 
+func (dh *Datahub) getGeoNetListByTag(tag string) *netutils.NetList {
+	dh.geodlmLock.RLock()
+	defer dh.geodlmLock.RUnlock()
+	return dh.geoipNetListMap[tag]
+}
+
 func (dh *Datahub) getGeoDomainListByTag(tag string) *netutils.DomainList {
 	dh.geodlmLock.RLock()
 	defer dh.geodlmLock.RUnlock()
