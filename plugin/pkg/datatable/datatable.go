@@ -31,6 +31,7 @@ type TextData interface {
 	Match(name string) bool
 	MatchNet(inet iplib.Net) bool
 	LessString() string
+	ForEach(f func(interface{}) error, mx int)
 	Len() int
 }
 

@@ -112,3 +112,9 @@ func (d *DomainData) LessString() string {
 func (d *DomainData) Len() int {
 	return d.data.FullLen() + d.data.RegexLen()
 }
+
+func (d *DomainData) ForEach(f func(interface{}) error, max int) {
+	d.data.ForEach(func(name string) {
+		_ = f(name)
+	}, max)
+}

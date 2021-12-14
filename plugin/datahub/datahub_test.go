@@ -123,3 +123,8 @@ func Test_reload(t *testing.T) {
 	a := time.Second * 100
 	t.Log(a.String())
 }
+
+func Test_SplitHostPort(t *testing.T) {
+	addr, port, err := net.SplitHostPort(":111:800")
+	t.Log(addr, port, err)
+}

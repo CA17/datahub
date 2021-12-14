@@ -42,6 +42,7 @@ type Datahub struct {
 	sched             *cron.Cron
 	matchCache        *bigcache.BigCache
 	reloadCron        string
+	pubserver         *pubServer
 	debug             bool
 }
 
@@ -53,7 +54,7 @@ func (dh *Datahub) Name() string { return "datahub" }
 
 func NewDatahub() *Datahub {
 	mc, _ := bigcache.NewBigCache(bigcache.DefaultConfig(time.Second * 300))
-	return &Datahub{
+	hub := &Datahub{
 		geonlmLock:           sync.RWMutex{},
 		geodlmLock:           sync.RWMutex{},
 		geoipNetListMap:      make(map[string]*netutils.NetList),
@@ -65,6 +66,8 @@ func NewDatahub() *Datahub {
 		matchCache:           mc,
 		sched:                cron.New(cron.WithParser(cronParser)),
 	}
+	hub.pubserver = newPubServer(hub)
+	return hub
 }
 
 func (dh *Datahub) getGeoDomainListByTag(tag string) *netutils.DomainList {
@@ -74,6 +77,7 @@ func (dh *Datahub) getGeoDomainListByTag(tag string) *netutils.DomainList {
 }
 
 func (dh *Datahub) getDataTableByTag(dtyope string, tag string) *datatable.DataTable {
+	tag = strings.ToUpper(tag)
 	switch dtyope {
 	case datatable.DateTypeEcsTable:
 		if v, ok := dh.ecsTableMap.Get(tag); ok {
@@ -172,11 +176,20 @@ func (dh *Datahub) parseDataTableByTag(datatype string, tag string, from string)
 }
 
 func (dh *Datahub) OnStartup() error {
+	go func() {
+		panic(dh.pubserver.start())
+	}()
+	log.Infof("pubserver is running %s", dh.pubserver.listenAddr)
 	dh.startSched()
+	log.Infof("sched is running")
 	return nil
 }
 
 func (dh *Datahub) OnShutdown() error {
+	err := dh.pubserver.stop()
+	if err != nil {
+		return err
+	}
 	dh.stopSched()
 	return nil
 }

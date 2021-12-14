@@ -134,3 +134,9 @@ func (e *EcsData) LessString() string {
 func (e *EcsData) Len() int {
 	return e.data.Len()
 }
+
+func (e *EcsData) ForEach(f func(interface{}) error, max int) {
+	e.netBindings.ForEach(func(inet iplib.Net) {
+		_ = f(inet)
+	}, max)
+}

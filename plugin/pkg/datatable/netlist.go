@@ -106,3 +106,9 @@ func (n *NetlistData) LessString() string {
 func (n *NetlistData) Len() int {
 	return n.data.Len()
 }
+
+func (n *NetlistData) ForEach(f func(interface{}) error, max int) {
+	n.data.ForEach(func(item iplib.Net) {
+		_ = f(item)
+	}, max)
+}

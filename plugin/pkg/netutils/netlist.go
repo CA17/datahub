@@ -91,7 +91,7 @@ func (l *NetList) ForEach(f func(net iplib.Net), max int) {
 	defer l.RUnlock()
 	c := 0
 	for _, d := range l.data {
-		if c >= max {
+		if max > 0 && c >= max {
 			return
 		}
 		f(d)

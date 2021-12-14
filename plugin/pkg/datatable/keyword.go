@@ -123,3 +123,15 @@ func (k *keywordData) Len() int {
 func (k *keywordData) MatchNet(n iplib.Net) bool {
 	return false
 }
+
+func (k *keywordData) ForEach(f func(interface{}) error, max int) {
+	k.RLock()
+	defer k.RUnlock()
+	c := 0
+	for _, datum := range k.data {
+		if max > 0 && c >= max {
+			break
+		}
+		_ = f(datum)
+	}
+}

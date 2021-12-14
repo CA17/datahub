@@ -1,6 +1,7 @@
 package datahub
 
 import (
+	"net"
 	"strings"
 
 	"github.com/ca17/datahub/plugin/pkg/datatable"
@@ -135,7 +136,7 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 				remaining := c.RemainingArgs()
 				plen := len(remaining)
 				if plen != 2 {
-					return nil, c.Errf("netlist_table args num is 2 ")
+					return nil, c.ArgErr()
 				}
 				d.parseDataTableByTag(datatable.DateTypeNetlistTable, remaining[0], remaining[1])
 				d.netlistTableMap.IterCb(func(k string, v interface{}) {
@@ -145,12 +146,27 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 				remaining := c.RemainingArgs()
 				plen := len(remaining)
 				if plen != 2 {
-					return nil, c.Errf("ecs_table args num is 2 ")
+					return nil, c.ArgErr()
 				}
 				d.parseDataTableByTag(datatable.DateTypeEcsTable, remaining[0], remaining[1])
 				d.ecsTableMap.IterCb(func(k string, v interface{}) {
 					log.Infof("ecs_table %s total %d", k, v.(*datatable.DataTable).Len())
 				})
+			case "datapub_listen":
+				remaining := c.RemainingArgs()
+				plen := len(remaining)
+				if plen < 1 {
+					return nil, c.ArgErr()
+				}
+				_, _, err := net.SplitHostPort(remaining[0])
+				if err != nil {
+					return nil, c.SyntaxErr(err.Error())
+				}
+				d.pubserver.listenAddr = remaining[0]
+				if plen == 3 {
+					d.pubserver.certfile = remaining[1]
+					d.pubserver.keyfile = remaining[2]
+				}
 			case "reload":
 				reloadCron := strings.Join(c.RemainingArgs(), " ")
 				_, err := cronParser.Parse(reloadCron)

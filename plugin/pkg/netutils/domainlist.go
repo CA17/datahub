@@ -159,7 +159,7 @@ func (l *DomainList) ForEach(f func(name string), max int) {
 	for iter.SetNext() {
 		current, err := iter.Value()
 		if err == nil {
-			if c >= max/2 {
+			if max > 0 && c >= max/2 {
 				break
 			}
 			f(current.Key())
@@ -169,7 +169,7 @@ func (l *DomainList) ForEach(f func(name string), max int) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, d := range l.regexTable {
-		if c >= max {
+		if max > 0 && c >= max {
 			return
 		}
 		f(d.String())
