@@ -18,6 +18,7 @@ func Test_parseConfig(t *testing.T) {
         keyword_table cn ../../data/keyword_cn.txt
         domain_table cn ../../data/domain_cn.txt
         netlist_table cn ../../data/netlist_cn.txt
+        ecs_table global ../../data/ecs_table.txt
         reload @every 3s
     }`)
 	ecs, err := parseConfig(c)
