@@ -42,7 +42,7 @@ type Datahub struct {
 	sched             *cron.Cron
 	matchCache        *bigcache.BigCache
 	reloadCron        string
-	pubserver         *pubServer
+	pubserver         *dataServer
 	debug             bool
 }
 
