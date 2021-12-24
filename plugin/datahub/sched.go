@@ -26,6 +26,10 @@ func (dh *Datahub) cronUpdateKeywordTableMap() {
 	for _, _item := range dh.keywordTableMap.Items() {
 		item := _item.(*datatable.DataTable)
 		item.LoadFromFile()
-		item.LoadFromUrl()
+		if dh.jwtSecret != "" {
+			item.LoadFromUrlWithJwt(dh.jwtSecret)
+		} else {
+			item.LoadFromUrl()
+		}
 	}
 }

@@ -33,7 +33,7 @@ func NewDomainList() *DomainList {
 
 func (l *DomainList) Add(matchType string, name string) bool {
 	switch matchType {
-	case MatchFullType:
+	case MatchFullType, MatchDomainType:
 		err := l.fullTable.Set(name, []byte("1"))
 		if err != nil {
 			return false

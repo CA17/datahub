@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"hash/fnv"
 	"os"
+	"time"
 
 	// jsoniter "github.com/json-iterator/go"
 
+	"github.com/form3tech-oss/jwt-go"
 )
 
 // var json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -37,8 +39,19 @@ func StringHash(str string) uint64 {
 	return h.Sum64()
 }
 
-
 func ToJson(v interface{}) string {
 	bs, _ := json.MarshalIndent(v, "", "  ")
 	return string(bs)
+}
+
+func CreateToken(secret string) (string, error) {
+	// Create token
+	token := jwt.New(jwt.SigningMethodHS256)
+	// Set claims
+	claims := token.Claims.(jwt.MapClaims)
+	claims["usr"] = "teamsdns"
+	claims["uid"] = "teamsdns"
+	claims["lvl"] = "api"
+	claims["exp"] = time.Now().Add(time.Hour).Unix()
+	return token.SignedString([]byte(secret))
 }

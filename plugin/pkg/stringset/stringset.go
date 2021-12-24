@@ -1,18 +1,25 @@
 package stringset
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+	"sync"
+)
 
 // Set is an unsorted set of unique strings.
-type Set map[string]struct{}
+type StringSet struct {
+	sync.RWMutex
+	Set map[string]struct{}
+}
 
 // New returns an initialized Set.
-func New() Set {
-	return Set{}
+func New() *StringSet {
+	return &StringSet{Set: make(map[string]struct{})}
 }
 
 // NewFromSlice returns a new set constructed from the given slice. Any
 // duplicate elements will be removed.
-func NewFromSlice(slice []string) Set {
+func NewFromSlice(slice []string) *StringSet {
 	s := New()
 	for _, v := range slice {
 		s.Add(v)
@@ -20,75 +27,87 @@ func NewFromSlice(slice []string) Set {
 	return s
 }
 
+func (s *StringSet) Copy() *StringSet {
+	ns := New()
+	s.Lock()
+	defer s.Unlock()
+	for v := range s.Set {
+		ns.Set[v] = struct{}{}
+	}
+	return ns
+}
+
 // Add adds each value in vs to the set. If any value is alredy in the set,
 // this has no effect.
-func (s Set) Add(vs ...string) {
+func (s *StringSet) Add(vs ...string) {
+	s.Lock()
+	defer s.Unlock()
 	for _, v := range vs {
-		s[v] = struct{}{}
+		s.Set[v] = struct{}{}
 	}
 }
 
 // Remove removes v from the set. If v is not in the set, this has no effect.
-func (s Set) Remove(v string) {
-	delete(s, v)
+func (s *StringSet) Remove(v string) {
+	s.Lock()
+	defer s.Unlock()
+	delete(s.Set, v)
 }
 
 // Contains returns true if the set contains v and false otherwise.
-func (s Set) Contains(v string) bool {
-	_, ok := s[v]
+func (s *StringSet) Contains(v string) bool {
+	s.RLock()
+	defer s.RUnlock()
+	_, ok := s.Set[v]
 	return ok
+}
+
+func (s *StringSet) MatchFirst(src string) (string, bool) {
+	s.RLock()
+	defer s.RUnlock()
+	for v := range s.Set {
+		if strings.Contains(src, v) {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func (s *StringSet) MatchFnFirst(fn func(s2 string) bool) bool {
+	s.RLock()
+	defer s.RUnlock()
+	for v := range s.Set {
+		if fn(v) {
+			return true
+		}
+	}
+	return false
 }
 
 // Slice returns the elements in the set as a slice of strings. It returns an
 // empty slice if the set contains no elements. The elements returned will be
 // in random order.
-func (s Set) Slice() []string {
-	slice := make([]string, len(s))
+func (s *StringSet) Slice() []string {
+	s.RLock()
+	defer s.RUnlock()
+	slice := make([]string, len(s.Set))
 	i := 0
-	for v := range s {
+	for v := range s.Set {
 		slice[i] = v
 		i++
 	}
 	return slice
 }
 
+func (s *StringSet) ForEach(fn func(s string)) {
+	s.RLock()
+	defer s.RUnlock()
+	for v := range s.Set {
+		fn(v)
+	}
+}
+
 // String implements the Stringer interface.
-func (s Set) String() string {
+func (s *StringSet) String() string {
 	return fmt.Sprint(s.Slice())
-}
-
-// Union returns a new set which contains all elements that are in either a or
-// b.
-func Union(a, b Set) Set {
-	result := New()
-	for v := range a {
-		result.Add(v)
-	}
-	for v := range b {
-		result.Add(v)
-	}
-	return result
-}
-
-// Intersect returns a new set which contains only elements that are in both a
-// and b.
-func Intersect(a, b Set) Set {
-	result := New()
-	for v := range a {
-		if b.Contains(v) {
-			result.Add(v)
-		}
-	}
-	return result
-}
-
-// Diff returns a new set which contains all elements in a that are not in b.
-func Diff(a, b Set) Set {
-	result := New()
-	for v := range a {
-		if !b.Contains(v) {
-			result.Add(v)
-		}
-	}
-	return result
 }

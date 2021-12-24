@@ -43,6 +43,8 @@ type Datahub struct {
 	matchCache        *bigcache.BigCache
 	reloadCron        string
 	pubserver         *dataServer
+	notifyServer      *notifyServer
+	jwtSecret         string
 	debug             bool
 }
 
@@ -64,6 +66,7 @@ func NewDatahub() *Datahub {
 		domainTableMap:       cmap.New(),
 		ecsTableMap:          cmap.New(),
 		matchCache:           mc,
+		notifyServer:         newNotifyServer(),
 		sched:                cron.New(cron.WithParser(cronParser)),
 	}
 	hub.pubserver = newPubServer(hub)
