@@ -132,8 +132,29 @@ func (kt *DataTable) LoadFromFile() {
 }
 
 func (kt *DataTable) LoadFromUrl() {
+	kt.LoadFromUrlWithJwt("")
+}
+
+func (kt *DataTable) LoadFromUrlWithJwt(jwtsecret string) {
 	if kt.whichType != WhichTypeUrl || len(kt.url) == 0 {
 		return
+	}
+
+	if jwtsecret == "" {
+		jwtsecret = os.Getenv("TEAMSDNS_JWT_SECRET")
+	}
+
+	var token string
+	if jwtsecret != "" {
+		token, _ = common.CreateToken(jwtsecret)
+	}
+
+	if token != "" {
+		if strings.Contains(kt.url, "?") {
+			kt.url = kt.url + "&token=" + token
+		} else {
+			kt.url = kt.url + "?token=" + token
+		}
 	}
 
 	content, err := httpc.Get(kt.url, nil)

@@ -2,6 +2,7 @@ package datahub
 
 import (
 	"net"
+	"os"
 	"strings"
 
 	"github.com/ca17/datahub/plugin/pkg/datatable"
@@ -9,12 +10,15 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/dnstap"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 )
 
 var log = clog.NewWithPlugin("datahub")
 
 func init() { plugin.Register("datahub", setup) }
+
+var tapPlugin *dnstap.Dnstap
 
 func setup(c *caddy.Controller) error {
 	datahub, err := parseConfig(c)
@@ -23,6 +27,11 @@ func setup(c *caddy.Controller) error {
 	}
 
 	c.OnStartup(func() error {
+		if dtap := dnsserver.GetConfig(c).Handler("dnstap"); dtap != nil {
+			if hp, ok := dtap.(*dnstap.Dnstap); ok {
+				tapPlugin = hp
+			}
+		}
 		return datahub.OnStartup()
 	})
 
@@ -167,6 +176,23 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 					d.pubserver.certfile = remaining[1]
 					d.pubserver.keyfile = remaining[2]
 				}
+			case "notify_server":
+				remaining := c.RemainingArgs()
+				plen := len(remaining)
+				if plen < 1 {
+					return nil, c.ArgErr()
+				}
+				if d.notifyServer.addServer(remaining...) {
+					log.Info("add notify server %v", remaining)
+				}
+			case "jwt_secret":
+				remaining := c.RemainingArgs()
+				plen := len(remaining)
+				if plen < 1 {
+					return nil, c.ArgErr()
+				}
+				os.Setenv("TEAMSDNS_JWT_SECRET", d.jwtSecret)
+				d.jwtSecret = remaining[0]
 			case "reload":
 				reloadCron := strings.Join(c.RemainingArgs(), " ")
 				_, err := cronParser.Parse(reloadCron)

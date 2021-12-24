@@ -11,6 +11,8 @@
         domain_table cn data/domain_cn.txt
         netlist_table cn data/netlist_cn.txt
         ecs_table global data/ecs_table.txt
+        notify_server  http://teamsacs.domain.cn
+        jwt_secret 9b6de5cc-vcty-4bf1-zpms-0f568ac9da37
         datapub_listen :9800
         reload @every 3s
     }

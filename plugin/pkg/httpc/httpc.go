@@ -8,6 +8,24 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/ca17/datahub/plugin/pkg/common"
+)
+
+const (
+	charsetUTF8                    = "charset=UTF-8"
+	MIMEApplicationJSON            = "application/json"
+	MIMEApplicationJSONCharsetUTF8 = MIMEApplicationJSON + "; " + charsetUTF8
+	MIMETextXML                    = "text/xml"
+	MIMETextXMLCharsetUTF8         = MIMETextXML + "; " + charsetUTF8
+	MIMETextHTML                   = "text/html"
+	MIMETextHTMLCharsetUTF8        = MIMETextHTML + "; " + charsetUTF8
+	MIMETextPlain                  = "text/plain"
+	MIMETextPlainCharsetUTF8       = MIMETextPlain + "; " + charsetUTF8
+	MIMEMultipartForm              = "multipart/form-data"
+	MIMEOctetStream                = "application/octet-stream"
+
+	HeaderContentType = "Content-Type"
 )
 
 type H map[string]string
@@ -18,6 +36,15 @@ func Get(url string, header H) (respBytes []byte, err error) {
 
 func Post(url string, body io.Reader, header H) (respBytes []byte, err error) {
 	return DoRestfulRequest(http.MethodPost, url, body, header)
+}
+
+func PostJson(url string, data interface{}) (respBytes []byte, err error) {
+	body := common.ToJson(data)
+	rd := bytes.NewReader([]byte(body))
+	return DoRestfulRequest(http.MethodPost, url, rd, map[string]string{
+		HeaderContentType: MIMEApplicationJSON,
+		"Connection":      "keep-alive",
+	})
 }
 
 func DoRestfulRequest(method, url string, body io.Reader, header map[string]string) (respBytes []byte, err error) {

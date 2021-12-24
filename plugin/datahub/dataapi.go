@@ -104,10 +104,10 @@ func (dh *Datahub) MatchKeyword(tag string, name string) bool {
 }
 
 // MatchEcs 匹配 ECS IP
-func (dh *Datahub) MatchEcs(tag string, name string) net.IP {
+func (dh *Datahub) MatchEcs(tag string, client string) net.IP {
 	tag = strings.ToUpper(tag)
 	if list := dh.getDataTableByTag(datatable.DateTypeEcsTable, tag); list != nil {
-		return list.GetData().(*datatable.EcsData).MatchEcsIP(name)
+		return list.GetData().(*datatable.EcsData).MatchEcsIP(client)
 	}
 	return nil
 }
@@ -145,6 +145,9 @@ var _mateched = []byte("1")
 
 // MixMatchTags 混合模式匹配域名
 func (dh *Datahub) MixMatchTags(tags []string, name string) bool {
+	if len(tags) == 0 {
+		return false
+	}
 	var start = time.Now()
 	defer func() {
 		log.Debugf("Match %s cast %d ns", name, time.Now().Sub(start).Nanoseconds())
