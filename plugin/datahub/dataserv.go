@@ -104,7 +104,7 @@ func (s *dataServer) listKeywordsBytag(c *routing.Context) error {
 	return nil
 }
 
-// reloadData 重新加载网络地址，域名， 关键词， ecstable等信息
+// reloadData 重新加载网络地址，域名， 关键词， ecs等信息
 func (s *dataServer) reloadData(c *routing.Context) error {
 	body := c.Request.Body()
 	var dataReq datatable.DataReq
