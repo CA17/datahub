@@ -2,7 +2,9 @@ package datahub
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/c-robinson/iplib"
 	"github.com/ca17/datahub/plugin/pkg/common"
@@ -105,6 +107,7 @@ func (s *dataServer) listKeywordsBytag(c *routing.Context) error {
 }
 
 // reloadData 重新加载网络地址，域名， 关键词， ecs等信息
+// TODO 结果响应约定，加载结果
 func (s *dataServer) reloadData(c *routing.Context) error {
 	body := c.Request.Body()
 	var dataReq datatable.DataReq
@@ -115,53 +118,80 @@ func (s *dataServer) reloadData(c *routing.Context) error {
 		_, err = c.WriteString(err.Error())
 		return err
 	}
+
+	var sl []map[string]error
+	wg := &sync.WaitGroup{}
 	// 重载数据domain
 	if dataReq.Domain {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			domainMap := s.hub.domainTableMap
+			errMap := make(map[string]error, 5)
 			if len(domainMap) > 0 {
 				domainMap.IterCb(func(k string, v interface{}) {
-					v.(*datatable.DataTable).LoadAll()
+					errMap[k] = v.(*datatable.DataTable).LoadAll()
 				})
+				sl = append(sl, errMap)
 			}
 		}()
 	}
 
 	// 重载数据network
 	if dataReq.Network {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+			errMap := make(map[string]error, 5)
 			networkMap := s.hub.netlistTableMap
 			if len(networkMap) > 0 {
 				networkMap.IterCb(func(k string, v interface{}) {
-					v.(*datatable.DataTable).LoadAll()
+					errMap[k] = v.(*datatable.DataTable).LoadAll()
 				})
+				sl = append(sl, errMap)
 			}
 		}()
 	}
 
 	// 重载数据ecs
 	if dataReq.Ecs {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+			errMap := make(map[string]error, 5)
 			ecsMap := s.hub.ecsTableMap
 			if len(ecsMap) > 0 {
 				ecsMap.IterCb(func(k string, v interface{}) {
-					v.(*datatable.DataTable).LoadAll()
+					errMap[k] = v.(*datatable.DataTable).LoadAll()
 				})
+				sl = append(sl, errMap)
 			}
 		}()
 	}
 
 	// 重载数据keyword
 	if dataReq.Keyword {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			keywordMap := s.hub.keywordTableMap
+			errMap := make(map[string]error, 5)
 			if len(keywordMap) > 0 {
 				keywordMap.IterCb(func(k string, v interface{}) {
-					v.(*datatable.DataTable).LoadAll()
+					errMap[k] = v.(*datatable.DataTable).LoadAll()
 				})
+				sl = append(sl, errMap)
 			}
 		}()
 	}
+	wg.Wait()
+
+	for _, m := range sl {
+		for k, v := range m {
+			fmt.Println(k, v)
+		}
+	}
+
 	_, err = c.WriteString("ok")
 	return err
 }

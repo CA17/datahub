@@ -1,6 +1,7 @@
 package datatable
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -95,14 +96,14 @@ func (kt *DataTable) Len() int {
 	return kt.rdata.Len()
 }
 
-func (kt *DataTable) LoadFromFile() {
+func (kt *DataTable) LoadFromFile() error {
 	if kt.whichType != WhichTypePath || len(kt.path) == 0 {
-		return
+		return errors.New("路径错误：非file-path")
 	}
 	file, err := os.Open(kt.path)
 	if err != nil {
 		fmt.Printf("DataTable file read error %s", kt.path)
-		return
+		return err
 	}
 
 	stat, err := file.Stat()
@@ -113,7 +114,7 @@ func (kt *DataTable) LoadFromFile() {
 		kt.RUnlock()
 
 		if stat.ModTime() == mtime && stat.Size() == size {
-			return
+			return errors.New("文件未修改")
 		}
 	} else {
 		// Proceed parsing anyway
@@ -123,21 +124,22 @@ func (kt *DataTable) LoadFromFile() {
 	err = kt.rdata.ParseFile(file)
 	if err != nil {
 		fmt.Printf("parse rdata err %s", err.Error())
-		return
+		return err
 	}
 	kt.Lock()
 	kt.mtime = stat.ModTime()
 	kt.size = stat.Size()
 	kt.Unlock()
+	return nil
 }
 
-func (kt *DataTable) LoadFromUrl() {
-	kt.LoadFromUrlWithJwt("")
+func (kt *DataTable) LoadFromUrl() error {
+	return kt.LoadFromUrlWithJwt("")
 }
 
-func (kt *DataTable) LoadFromUrlWithJwt(jwtsecret string) {
+func (kt *DataTable) LoadFromUrlWithJwt(jwtsecret string) error {
 	if kt.whichType != WhichTypeUrl || len(kt.url) == 0 {
-		return
+		return errors.New("路径错误：非url类型")
 	}
 
 	if jwtsecret == "" {
@@ -160,7 +162,7 @@ func (kt *DataTable) LoadFromUrlWithJwt(jwtsecret string) {
 	content, err := httpc.Get(kt.url, nil)
 	if err != nil {
 		fmt.Printf("Failed to update %q, err: %v", kt.url, err)
-		return
+		return err
 	}
 	contentStr := string(content)
 
@@ -169,13 +171,14 @@ func (kt *DataTable) LoadFromUrlWithJwt(jwtsecret string) {
 	kt.RUnlock()
 	contentHash1 := common.StringHash(contentStr)
 	if contentHash1 == contentHash {
-		return
+		return errors.New("内容未修改")
 	}
 	lines := strings.Split(contentStr, "\n")
 	kt.rdata.ParseLines(lines)
 	kt.Lock()
 	kt.contentHash = contentHash1
 	kt.Unlock()
+	return nil
 }
 
 func (kt *DataTable) LoadFromInline(ws []string) {
@@ -187,12 +190,14 @@ func (kt *DataTable) LoadFromInline(ws []string) {
 	kt.rdata.ParseInline(ws)
 }
 
-func (kt *DataTable) LoadAll() {
+func (kt *DataTable) LoadAll() error {
 	switch kt.whichType {
 	case WhichTypePath:
-		kt.LoadFromFile()
+		return kt.LoadFromFile()
 	case WhichTypeUrl:
-		kt.LoadFromUrl()
+		return kt.LoadFromUrl()
+	default:
+		return errors.New("没有匹配到path类型")
 	}
 }
 
