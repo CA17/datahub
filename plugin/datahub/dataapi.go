@@ -9,7 +9,6 @@ import (
 	"github.com/ca17/datahub/plugin/pkg/datatable"
 	"github.com/ca17/datahub/plugin/pkg/loader"
 	"github.com/ca17/datahub/plugin/pkg/netutils"
-	"github.com/ca17/datahub/plugin/pkg/stats"
 	"github.com/ca17/datahub/plugin/pkg/v2data"
 )
 
@@ -58,16 +57,23 @@ func (dh *Datahub) MixMatchNetByStr(tag string, ns string) bool {
 // MixMatchNet 混合模式匹配网络地址
 func (dh *Datahub) MixMatchNet(tag string, ns iplib.Net) bool {
 	tag = strings.ToUpper(tag)
+	_, err := dh.matchCache.Get(tag + ns.String())
+	if err == nil {
+		dh.networkMatchStat.Incr(tag, 1)
+		return true
+	}
 	// 匹配自定义网络地址列表
 	if list := dh.getDataTableByTag(datatable.DateTypeNetlistTable, tag); list != nil &&
 		list.GetData().(*datatable.NetlistData).MatchNet(ns) {
 		dh.networkMatchStat.Incr(tag, 1)
+		_ = dh.matchCache.Set(tag+ns.String(), []byte(NetworkMatcher))
 		return true
 	}
 
 	// 匹配Geodat网络地址列表
 	if list := dh.getGeoNetListByTag(tag); list != nil && list.MatchNet(ns) {
 		dh.networkMatchStat.Incr(tag, 1)
+		_ = dh.matchCache.Set(tag+ns.String(), []byte(NetworkMatcher))
 		return true
 	}
 
@@ -86,10 +92,16 @@ func (dh *Datahub) MatchNetByStr(tag string, ns string) bool {
 // MatchNet 匹配自定义网络地址
 func (dh *Datahub) MatchNet(tag string, ns iplib.Net) bool {
 	tag = strings.ToUpper(tag)
+	_, err := dh.matchCache.Get(tag + ns.String())
+	if err == nil {
+		dh.networkMatchStat.Incr(tag, 1)
+		return true
+	}
 	// 匹配自定义网络地址列表
 	if list := dh.getDataTableByTag(datatable.DateTypeNetlistTable, tag); list != nil &&
 		list.GetData().(*datatable.NetlistData).MatchNet(ns) {
 		dh.networkMatchStat.Incr(tag, 1)
+		_ = dh.matchCache.Set(tag+ns.String(), []byte(NetworkMatcher))
 		return true
 	}
 	return false
@@ -235,47 +247,4 @@ func (dh *Datahub) MixMatchTags(tags []string, name string, reverse bool) bool {
 		}
 	}
 	return reverseResult(false, reverse)
-}
-
-// stats
-
-// IncrMetricsCounter metadnsq 调用，递增Metrics计数器
-func (dh *Datahub) IncrMetricsCounter(name string) {
-	dh.metricsStat.Incr(name, 1)
-}
-
-// GetMetricSValue 查询 Metrics 统计值
-func (dh *Datahub) GetMetricSValue(name string) int64 {
-	return dh.metricsStat.GetValue(name)
-}
-
-// GetDomainDayLineStat 查询域名标签匹配 24小时趋势图
-func (dh *Datahub) GetDomainDayLineStat() *stats.LineChartData {
-	return dh.dayaDomainChartStat.LineChartData("最近 24 小时域名匹配统计").ChartData()
-}
-
-// GetNetworkDayLineStat 查询网络标签匹配 24小时趋势图
-func (dh *Datahub) GetNetworkDayLineStat() *stats.LineChartData {
-	return dh.dayaDomainChartStat.LineChartData("最近 24 小时网络地址匹配统计").ChartData()
-}
-
-// QueryTotal 查询DNS 请求总数统计值
-func (dh *Datahub) QueryTotal() int64 {
-	return dh.metricsStat.GetValue(MetricsStatDnsQuery)
-}
-
-// MatcherStats 查询 Metrics 指标统计
-func (dh *Datahub) MatcherStats(classify string) []stats.Counter {
-	switch classify {
-	case "domain":
-		return dh.domainMatchStat.Values()
-	case "keyword":
-		return dh.keywordMatchStat.Values()
-	case "network":
-		return dh.networkMatchStat.Values()
-	default:
-		return []stats.Counter{
-			*stats.NewCounter("unknow", 0),
-		}
-	}
 }

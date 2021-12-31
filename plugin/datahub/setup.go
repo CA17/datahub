@@ -183,7 +183,7 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 					return nil, c.ArgErr()
 				}
 				if d.notifyServer.addServer(remaining...) {
-					log.Info("add notify server %v", remaining)
+					log.Infof("add notify server %v", remaining)
 				}
 			case "jwt_secret":
 				remaining := c.RemainingArgs()
