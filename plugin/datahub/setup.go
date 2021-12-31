@@ -2,7 +2,6 @@ package datahub
 
 import (
 	"net"
-	"os"
 	"strings"
 
 	"github.com/ca17/datahub/plugin/pkg/datatable"
@@ -133,9 +132,9 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 				remaining := c.RemainingArgs()
 				plen := len(remaining)
 				if plen != 2 {
-					return nil, c.Errf("keyword_table args num is 2 ")
+					return nil, c.ArgErr()
 				}
-				d.parseDataTableByTag(datatable.DateTypeKeywordTable, remaining[0], remaining[1])
+				d.parseDataTableByTag(datatable.DateTypeKeywordTable, strings.Split(remaining[0], ","), remaining[1])
 				d.keywordTableMap.IterCb(func(k string, v interface{}) {
 					log.Infof("keyword_table %s total %d", k, v.(*datatable.DataTable).Len())
 				})
@@ -145,7 +144,7 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 				if plen != 2 {
 					return nil, c.Errf("domain_table args num is 2 ")
 				}
-				d.parseDataTableByTag(datatable.DateTypeDomainlistTable, remaining[0], remaining[1])
+				d.parseDataTableByTag(datatable.DateTypeDomainlistTable, strings.Split(remaining[0], ","), remaining[1])
 				d.domainTableMap.IterCb(func(k string, v interface{}) {
 					log.Infof("domain_table %s total %d", k, v.(*datatable.DataTable).Len())
 				})
@@ -155,7 +154,7 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 				if plen != 2 {
 					return nil, c.ArgErr()
 				}
-				d.parseDataTableByTag(datatable.DateTypeNetlistTable, remaining[0], remaining[1])
+				d.parseDataTableByTag(datatable.DateTypeNetlistTable, strings.Split(remaining[0], ","), remaining[1])
 				d.netlistTableMap.IterCb(func(k string, v interface{}) {
 					log.Infof("netlist_table %s total %d", k, v.(*datatable.DataTable).Len())
 				})
@@ -165,7 +164,7 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 				if plen != 2 {
 					return nil, c.ArgErr()
 				}
-				d.parseDataTableByTag(datatable.DateTypeEcsTable, remaining[0], remaining[1])
+				d.parseDataTableByTag(datatable.DateTypeEcsTable, strings.Split(remaining[0], ","), remaining[1])
 				d.ecsTableMap.IterCb(func(k string, v interface{}) {
 					log.Infof("ecs_table %s total %d", k, v.(*datatable.DataTable).Len())
 				})
@@ -199,7 +198,6 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 				if plen < 1 {
 					return nil, c.ArgErr()
 				}
-				os.Setenv("TEAMSDNS_JWT_SECRET", d.jwtSecret)
 				d.jwtSecret = remaining[0]
 			case "reload":
 				reloadCron := strings.Join(c.RemainingArgs(), " ")
