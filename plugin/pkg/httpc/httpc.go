@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"math/rand"
+	"net"
 	"net/http"
 	"time"
 
@@ -30,24 +32,55 @@ const (
 
 type H map[string]string
 
-func Get(url string, header H) (respBytes []byte, err error) {
-	return DoRestfulRequest(http.MethodGet, url, nil, header)
+func Get(url string, header H, bootstrap []string, timeout time.Duration) (respBytes []byte, err error) {
+	return DoRestfulRequest(http.MethodGet, url, nil, header, bootstrap, timeout)
 }
 
-func Post(url string, body io.Reader, header H) (respBytes []byte, err error) {
-	return DoRestfulRequest(http.MethodPost, url, body, header)
+func Post(url string, body io.Reader, header H, bootstrap []string, timeout time.Duration) (respBytes []byte, err error) {
+	return DoRestfulRequest(http.MethodPost, url, body, header, bootstrap, timeout)
 }
 
-func PostJson(url string, data interface{}) (respBytes []byte, err error) {
+func PostJson(url string, data interface{}, bootstrap []string, timeout time.Duration) (respBytes []byte, err error) {
 	body := common.ToJson(data)
 	rd := bytes.NewReader([]byte(body))
 	return DoRestfulRequest(http.MethodPost, url, rd, map[string]string{
 		HeaderContentType: MIMEApplicationJSON,
 		"Connection":      "keep-alive",
-	})
+	}, bootstrap, timeout)
 }
 
-func DoRestfulRequest(method, url string, body io.Reader, header map[string]string) (respBytes []byte, err error) {
+func DoRestfulRequest(method, url string, body io.Reader, header map[string]string, bootstrap []string, timeout time.Duration) (respBytes []byte, err error) {
+	var transport http.RoundTripper
+
+	if len(bootstrap) != 0 {
+		resolver := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				var d net.Dialer
+				// Randomly choose a bootstrap DNS to resolve upstream host(if any)
+				addr := bootstrap[rand.Intn(len(bootstrap))]
+				return d.DialContext(ctx, network, addr)
+			},
+		}
+		dialer := &net.Dialer{
+			Timeout:  timeout,
+			Resolver: resolver,
+		}
+		// see: http.DefaultTransport
+		transport = &http.Transport{
+			DialContext:           dialer.DialContext,
+			ExpectContinueTimeout: 1 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   10,
+			Proxy:                 http.ProxyFromEnvironment,
+			TLSHandshakeTimeout:   timeout,
+		}
+	} else {
+		transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+		}
+	}
 	// 设置超时
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
@@ -63,10 +96,7 @@ func DoRestfulRequest(method, url string, body io.Reader, header map[string]stri
 		}
 	}
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := http.Client{Transport: tr}
+	client := http.Client{Transport: transport}
 	resp, err := client.Do(req)
 	if err != nil {
 		return

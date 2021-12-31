@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/c-robinson/iplib"
-	"github.com/ca17/datahub/plugin/pkg/netutils"
+	"github.com/metaslink/metasdns/plugin/pkg/netutils"
 )
 
 type DomainData struct {
@@ -16,11 +16,14 @@ type DomainData struct {
 }
 
 func newDomainData(tag string) *DomainData {
-	return &DomainData{tag: tag}
+	return &DomainData{tag: tag, data: netutils.NewDomainList()}
+}
+
+func (d *DomainData) Reset() {
+	d.data.Clear()
 }
 
 func (d *DomainData) ParseFile(r io.Reader) error {
-	d.data = netutils.NewDomainList()
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -48,9 +51,9 @@ func (d *DomainData) ParseFile(r io.Reader) error {
 	return nil
 }
 
-func (d *DomainData) ParseLines(lines []string) {
-	if d.data == nil {
-		d.data = netutils.NewDomainList()
+func (d *DomainData) ParseLines(lines []string, reset bool) {
+	if reset {
+		d.data.Clear()
 	}
 	for _, line := range lines {
 		if i := strings.IndexByte(line, '#'); i >= 0 {
@@ -76,9 +79,6 @@ func (d *DomainData) ParseLines(lines []string) {
 }
 
 func (d *DomainData) ParseInline(ws []string) {
-	if d.data == nil {
-		d.data = netutils.NewDomainList()
-	}
 	if len(ws) < 2 {
 		fmt.Println("inline len must > 2, format is  tag word...")
 		return

@@ -26,11 +26,12 @@ const (
 
 type TextData interface {
 	ParseFile(reader io.Reader) error
-	ParseLines(lines []string)
+	ParseLines(lines []string, reset bool)
 	ParseInline(ws []string)
 	Match(name string) bool
 	MatchNet(inet iplib.Net) bool
 	LessString() string
+	Reset()
 	ForEach(f func(interface{}) error, mx int)
 	Len() int
 }
@@ -44,8 +45,9 @@ type DataTable struct {
 	url         string
 	contentHash uint64
 	tag         string
-	rdata       TextData
 	jwtSecret   string
+	bootstrap   []string
+	rdata       TextData
 }
 
 func NewFromArgs(datatype string, tag string, from string) *DataTable {
@@ -56,6 +58,7 @@ func NewFromArgs(datatype string, tag string, from string) *DataTable {
 	if common.FileExists(from) {
 		return NewDataTable(datatype, tag, WhichTypePath, from, "", "")
 	}
+	// log.Println("[Warn]", datatype, tag, from, "no data loaded")
 	return NewDataTable(datatype, tag, WhichTypeInline, "", "", from)
 }
 
@@ -83,9 +86,13 @@ func NewDataTable(datatype string, tag string, wtype int, path, url string, inli
 		return nil
 	}
 	if inline != "" && strings.HasPrefix(inline, tag) {
-		dt.rdata.ParseLines(strings.Fields(inline))
+		dt.rdata.ParseLines(strings.Fields(inline), false)
 	}
 	return dt
+}
+
+func (kt *DataTable) Reset() {
+	kt.rdata.Reset()
 }
 
 func (kt *DataTable) Match(name string) bool {
@@ -137,11 +144,7 @@ func (kt *DataTable) LoadFromUrl() {
 		return
 	}
 
-	var token string
-	if kt.jwtSecret != "" {
-		token, _ = common.CreateToken(kt.jwtSecret)
-	}
-
+	token, _ := common.CreateToken(kt.jwtSecret)
 	if token != "" {
 		if strings.Contains(kt.url, "?") {
 			kt.url = kt.url + "&token=" + token
@@ -150,7 +153,7 @@ func (kt *DataTable) LoadFromUrl() {
 		}
 	}
 
-	content, err := httpc.Get(kt.url, nil)
+	content, err := httpc.Get(kt.url, nil, kt.bootstrap, time.Second*30)
 	if err != nil {
 		fmt.Printf("Failed to update %q, err: %v", kt.url, err)
 		return
@@ -165,7 +168,7 @@ func (kt *DataTable) LoadFromUrl() {
 		return
 	}
 	lines := strings.Split(contentStr, "\n")
-	kt.rdata.ParseLines(lines)
+	kt.rdata.ParseLines(lines, true)
 	kt.Lock()
 	kt.contentHash = contentHash1
 	kt.Unlock()
@@ -203,4 +206,8 @@ func (kt *DataTable) GetData() TextData {
 
 func (kt *DataTable) SetJwtSecret(s string) {
 	kt.jwtSecret = s
+}
+
+func (kt *DataTable) SetBootstrap(bs []string) {
+	kt.bootstrap = bs
 }

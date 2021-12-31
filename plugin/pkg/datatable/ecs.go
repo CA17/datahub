@@ -11,7 +11,7 @@ import (
 
 	"github.com/allegro/bigcache"
 	"github.com/c-robinson/iplib"
-	"github.com/ca17/datahub/plugin/pkg/netutils"
+	"github.com/metaslink/metasdns/plugin/pkg/netutils"
 )
 
 type EcsData struct {
@@ -26,6 +26,13 @@ func NewEcsData(tag string) *EcsData {
 	return &EcsData{tag: tag, data: _c, netBindings: netutils.NewNetList(make([]iplib.Net, 0))}
 }
 
+func (e *EcsData) Reset() {
+	e.Lock()
+	defer e.Unlock()
+	e.data.Reset()
+	e.netBindings.Clear()
+}
+
 func (e *EcsData) MatchEcsIP(q string) net.IP {
 	r, err := e.data.Get(q)
 	if err == nil {
@@ -35,8 +42,16 @@ func (e *EcsData) MatchEcsIP(q string) net.IP {
 	if err != nil {
 		return nil
 	}
+	// iter := e.data.Iterator()
+	// for iter.SetNext() {
+	// 	v, err := iter.Value()
+	// 	if err != nil {
+	// 		fmt.Println(err)
+	// 	}
+	// 	fmt.Println(v)
+	// }
 	if n := e.netBindings.FindNet(qnet); n != nil {
-		r, err := e.data.Get(qnet.String())
+		r, err := e.data.Get(n.String())
 		if err == nil {
 			return r
 		}
@@ -47,6 +62,8 @@ func (e *EcsData) MatchEcsIP(q string) net.IP {
 func (e *EcsData) ParseFile(r io.Reader) error {
 	e.Lock()
 	defer e.Unlock()
+	e.data.Reset()
+	e.netBindings.Clear()
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -56,9 +73,13 @@ func (e *EcsData) ParseFile(r io.Reader) error {
 	return nil
 }
 
-func (e *EcsData) ParseLines(lines []string) {
+func (e *EcsData) ParseLines(lines []string, reset bool) {
 	e.Lock()
 	defer e.Unlock()
+	if reset {
+		e.data.Reset()
+		e.netBindings.Clear()
+	}
 	for _, line := range lines {
 		e.parseLine(line)
 	}
@@ -94,8 +115,12 @@ func (e *EcsData) parseLine(line string) {
 				if err != nil {
 					continue
 				}
+				err = e.data.Set(inet.String(), ecsip)
+				if err != nil {
+					fmt.Println("add ecsip error" + err.Error())
+					continue
+				}
 				e.netBindings.Add(inet)
-				_ = e.data.Set(inet.String(), ecsip)
 			} else {
 				_ = e.data.Set(c, ecsip)
 			}
