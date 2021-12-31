@@ -27,26 +27,7 @@ func (d *DomainData) ParseFile(r io.Reader) error {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if i := strings.IndexByte(line, '#'); i >= 0 {
-			line = line[:i]
-		}
-
-		if strings.Index(line, ":") != -1 {
-			attrs := strings.Split(line, ":")
-			if len(attrs) != 3 {
-				continue
-			}
-			if attrs[1] != netutils.MatchFullType &&
-				attrs[1] != netutils.MatchDomainType &&
-				attrs[1] != netutils.MatchRegexType {
-				continue
-			}
-			if d.tag == strings.ToUpper(attrs[0]) {
-				d.data.Add(attrs[1], attrs[2])
-			}
-		} else {
-			d.data.Add(netutils.MatchFullType, line)
-		}
+		d.parseline(line)
 	}
 	return nil
 }
@@ -56,25 +37,29 @@ func (d *DomainData) ParseLines(lines []string, reset bool) {
 		d.data.Clear()
 	}
 	for _, line := range lines {
-		if i := strings.IndexByte(line, '#'); i >= 0 {
-			line = line[:i]
-		}
-		if strings.Index(line, ":") != -1 {
-			attrs := strings.Split(line, ":")
-			if len(attrs) != 3 {
-				continue
-			}
-			if attrs[1] != netutils.MatchFullType &&
-				attrs[1] != netutils.MatchDomainType &&
-				attrs[1] != netutils.MatchRegexType {
-				continue
-			}
-			if d.tag == strings.ToUpper(attrs[0]) {
-				d.data.Add(attrs[1], attrs[2])
-			}
-		} else {
-			d.data.Add(netutils.MatchFullType, line)
-		}
+		d.parseline(line)
+	}
+}
+
+func (d *DomainData) parseline(line string) {
+	if i := strings.IndexByte(line, '#'); i >= 0 {
+		line = line[:i]
+	}
+	attrs := strings.Fields(line)
+	if len(attrs) == 1 {
+		d.data.Add(netutils.MatchFullType, line)
+		return
+	}
+	if len(attrs) < 3 {
+		return
+	}
+	if attrs[1] != netutils.MatchFullType &&
+		attrs[1] != netutils.MatchDomainType &&
+		attrs[1] != netutils.MatchRegexType {
+		return
+	}
+	if d.tag == strings.ToUpper(attrs[0]) {
+		d.data.Add(attrs[1], attrs[2])
 	}
 }
 

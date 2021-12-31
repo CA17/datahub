@@ -1,1 +1,1 @@
-cn:baidu
+cn baidu

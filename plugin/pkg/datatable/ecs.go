@@ -89,41 +89,39 @@ func (e *EcsData) parseLine(line string) {
 	if i := strings.IndexByte(line, '#'); i >= 0 {
 		line = line[:i]
 	}
-	if strings.Index(line, ":") != -1 {
-		attrs := strings.Split(line, ":")
-		if len(attrs) != 3 {
-			return
-		}
-		if e.tag != strings.ToUpper(attrs[0]) {
-			return
-		}
-		var ecsip = net.ParseIP(attrs[2])
-		if ecsip == nil {
-			return
-		}
+	attrs := strings.Fields(line)
+	if len(attrs) < 3 {
+		return
+	}
+	if e.tag != strings.ToUpper(attrs[0]) {
+		return
+	}
+	var ecsip = net.ParseIP(attrs[2])
+	if ecsip == nil {
+		return
+	}
 
-		var addrs = attrs[1]
-		var clist []string
-		if strings.Index(addrs, ",") != -1 {
-			clist = append(clist, strings.Split(addrs, ",")...)
-		} else {
-			clist = append(clist, addrs)
-		}
-		for _, c := range clist {
-			if strings.Index(c, "/") != -1 {
-				inet, err := netutils.ParseIpNet(c)
-				if err != nil {
-					continue
-				}
-				err = e.data.Set(inet.String(), ecsip)
-				if err != nil {
-					fmt.Println("add ecsip error" + err.Error())
-					continue
-				}
-				e.netBindings.Add(inet)
-			} else {
-				_ = e.data.Set(c, ecsip)
+	var addrs = attrs[1]
+	var clist []string
+	if strings.Index(addrs, ",") != -1 {
+		clist = append(clist, strings.Split(addrs, ",")...)
+	} else {
+		clist = append(clist, addrs)
+	}
+	for _, c := range clist {
+		if strings.Index(c, "/") != -1 {
+			inet, err := netutils.ParseIpNet(c)
+			if err != nil {
+				continue
 			}
+			err = e.data.Set(inet.String(), ecsip)
+			if err != nil {
+				fmt.Println("add ecsip error" + err.Error())
+				continue
+			}
+			e.netBindings.Add(inet)
+		} else {
+			_ = e.data.Set(c, ecsip)
 		}
 	}
 }
