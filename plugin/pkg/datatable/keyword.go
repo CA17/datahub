@@ -33,21 +33,7 @@ func (k *keywordData) ParseFile(r io.Reader) error {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if i := strings.IndexByte(line, '#'); i >= 0 {
-			line = line[:i]
-		}
-
-		if strings.Index(line, ":") != -1 {
-			attrs := strings.Split(line, ":")
-			if len(attrs) != 2 {
-				continue
-			}
-			if k.tag == strings.ToUpper(attrs[0]) {
-				k.data = append(k.data, attrs[1])
-			}
-		} else {
-			k.data = append(k.data, line)
-		}
+		k.parseline(line)
 	}
 	return nil
 }
@@ -59,20 +45,24 @@ func (k *keywordData) ParseLines(lines []string, reset bool) {
 		k.data = make([]string, 0)
 	}
 	for _, line := range lines {
-		if i := strings.IndexByte(line, '#'); i >= 0 {
-			line = line[:i]
-		}
-		if strings.Index(line, ":") != -1 {
-			attrs := strings.Split(line, ":")
-			if len(attrs) != 2 {
-				continue
-			}
-			if k.tag == strings.ToUpper(attrs[0]) {
-				k.data = append(k.data, attrs[1])
-			}
-		} else {
-			k.data = append(k.data, line)
-		}
+		k.parseline(line)
+	}
+}
+
+func (k *keywordData) parseline(line string) {
+	if i := strings.IndexByte(line, '#'); i >= 0 {
+		line = line[:i]
+	}
+	attrs := strings.Fields(line)
+	if len(attrs) == 1 {
+		k.data = append(k.data, line)
+		return
+	}
+	if len(attrs) < 2 {
+		return
+	}
+	if k.tag == strings.ToUpper(attrs[0]) {
+		k.data = append(k.data, attrs[1])
 	}
 }
 

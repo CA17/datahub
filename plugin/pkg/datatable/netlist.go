@@ -28,21 +28,7 @@ func (n *NetlistData) ParseFile(r io.Reader) error {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if i := strings.IndexByte(line, '#'); i >= 0 {
-			line = line[:i]
-		}
-
-		if strings.Index(line, ":") != -1 {
-			attrs := strings.Split(line, ":")
-			if len(attrs) != 2 {
-				continue
-			}
-			if n.tag == strings.ToUpper(attrs[0]) {
-				n.data.AddByString(attrs[1])
-			}
-		} else {
-			n.data.AddByString(line)
-		}
+		n.parseline(line)
 	}
 	return nil
 }
@@ -52,20 +38,24 @@ func (n *NetlistData) ParseLines(lines []string, reset bool) {
 		n.data.Clear()
 	}
 	for _, line := range lines {
-		if i := strings.IndexByte(line, '#'); i >= 0 {
-			line = line[:i]
-		}
-		if strings.Index(line, ":") != -1 {
-			attrs := strings.Split(line, ":")
-			if len(attrs) != 2 {
-				continue
-			}
-			if n.tag == strings.ToUpper(attrs[0]) {
-				n.data.AddByString(attrs[1])
-			}
-		} else {
-			n.data.AddByString(line)
-		}
+		n.parseline(line)
+	}
+}
+
+func (n *NetlistData) parseline(line string) {
+	if i := strings.IndexByte(line, '#'); i >= 0 {
+		line = line[:i]
+	}
+	attrs := strings.Fields(line)
+	if len(attrs) == 1 {
+		n.data.AddByString(line)
+		return
+	}
+	if len(attrs) < 2 {
+		return
+	}
+	if n.tag == strings.ToUpper(attrs[0]) {
+		n.data.AddByString(attrs[1])
 	}
 }
 
