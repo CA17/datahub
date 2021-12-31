@@ -41,7 +41,7 @@ func (d *DayDnsStat) Rolling() {
 }
 
 func (d *DayDnsStat) Update(c *CounterStat) {
-	if time.Now().Sub(d.LastRolling).Seconds() > 120 {
+	if time.Now().Sub(d.LastRolling).Seconds() > 300 {
 		d.Rolling()
 	}
 	v := c.MapValues()
