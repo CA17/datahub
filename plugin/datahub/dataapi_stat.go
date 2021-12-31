@@ -16,6 +16,14 @@ func (dh *Datahub) GetMetricSValue(name string) int64 {
 	return dh.metricsStat.GetValue(name)
 }
 
+func (dh *Datahub) GetDomainTop(count int) []stats.Counter {
+	return dh.queryStat.GetTopValues(count)
+}
+
+func (dh *Datahub) GetClientTop(count int) []stats.Counter {
+	return dh.clientStat.GetTopValues(count)
+}
+
 // GetDomainDayLineStat 查询域名标签匹配 24小时趋势图
 func (dh *Datahub) GetDomainDayLineStat() *stats.LineChartData {
 	return dh.dayaDomainChartStat.LineChartData("最近 24 小时域名匹配统计").ChartData()

@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"sort"
 	"sync"
 	"sync/atomic"
 )
@@ -79,4 +80,15 @@ func (c *CounterStat) GetValue(name string) int64 {
 	} else {
 		return 0
 	}
+}
+
+func (c *CounterStat) GetTopValues(count int) []Counter {
+	values := c.Values()
+	sort.Slice(values, func(i, j int) bool {
+		return values[i].Value > values[j].Value
+	})
+	if len(values) < count {
+		return values
+	}
+	return values[0:count]
 }

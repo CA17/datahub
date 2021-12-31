@@ -15,7 +15,7 @@ func (dh *Datahub) startSched() {
 		dh.cronUpdateKeywordTableMap()
 	})
 
-	_, _ = dh.sched.AddFunc("@every 10s", func() {
+	_, _ = dh.sched.AddFunc("@every 60s", func() {
 		dh.dayaDomainChartStat.Update(dh.domainMatchStat)
 		dh.dayNetworkChartStat.Update(dh.networkMatchStat)
 	})
