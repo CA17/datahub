@@ -11,11 +11,23 @@ import (
 	"github.com/ca17/datahub/plugin/pkg/datatable"
 	"github.com/ca17/datahub/plugin/pkg/loader"
 	"github.com/ca17/datahub/plugin/pkg/netutils"
+	"github.com/ca17/datahub/plugin/pkg/stats"
 	"github.com/ca17/datahub/plugin/pkg/v2data"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 	"github.com/orcaman/concurrent-map"
 	"github.com/robfig/cron/v3"
+)
+
+const (
+	DomainMatcher  = "domain"
+	NetworkMatcher = "network"
+	KeywordMatcher = "keyword"
+
+	MetricsStatDnsQuery = "dnsquery"
+	MetricsStatEcsHits  = "ecshits"
+	MetricsStatNxdomain = "nxdomain"
 )
 
 var cronParser = cron.NewParser(
@@ -46,9 +58,24 @@ type Datahub struct {
 	notifyServer      *notifyServer
 	jwtSecret         string
 	debug             bool
+
+	// stat define
+	metricsStat         *stats.CounterStat // metrics 统计
+	queryStat           *stats.CounterStat // 查询域名统计
+	clientStat          *stats.CounterStat // 客户端统计
+	domainMatchStat     *stats.CounterStat // 域名标签统计
+	networkMatchStat    *stats.CounterStat // 网络标签统计
+	keywordMatchStat    *stats.CounterStat // 关键词统计
+	dayaDomainChartStat *stats.DayDnsStat  // 最近24小时域名标签匹配数统计
+	dayNetworkChartStat *stats.DayDnsStat  // 最近24小时网络标签匹配数统计
 }
 
+// ServeDNS Datahub 只做简单匹配统计， 不会处理请求逻辑
 func (dh *Datahub) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	state := &request.Request{W: w, Req: r}
+	dh.metricsStat.Incr(MetricsStatDnsQuery, 1)
+	dh.queryStat.Incr(state.Name(), 1)
+	dh.clientStat.Incr(state.IP(), 1)
 	return plugin.NextOrFailure(dh.Name(), dh.Next, ctx, w, r)
 }
 
@@ -68,6 +95,15 @@ func NewDatahub() *Datahub {
 		matchCache:           mc,
 		notifyServer:         newNotifyServer(),
 		sched:                cron.New(cron.WithParser(cronParser)),
+		// stat
+		domainMatchStat:     stats.NewCounterStat(),
+		networkMatchStat:    stats.NewCounterStat(),
+		keywordMatchStat:    stats.NewCounterStat(),
+		metricsStat:         stats.NewCounterStat(),
+		queryStat:           stats.NewCounterStat(),
+		clientStat:          stats.NewCounterStat(),
+		dayaDomainChartStat: stats.NewDayDnsStat(time.Hour * 24),
+		dayNetworkChartStat: stats.NewDayDnsStat(time.Hour * 24),
 	}
 	hub.pubserver = newPubServer(hub)
 	return hub
