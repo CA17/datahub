@@ -64,7 +64,7 @@ func (d *DayDnsStat) LineChartData(name string) *LineChartData {
 	})
 	ld := NewLineChartData(name, "")
 	for _, key := range keys {
-		ld.Times = append(ld.Times, time.UnixMilli(key).Format(time.RFC3339))
+		ld.Times = append(ld.Times, time.Unix(key/1000, 0).Format(time.RFC3339))
 		for ik, iv := range d.Values[key] {
 			if _, ok := ld.Datas[ik]; !ok {
 				ld.Datas[ik] = make([]int64, 0)
