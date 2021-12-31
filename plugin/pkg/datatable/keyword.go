@@ -17,7 +17,13 @@ type keywordData struct {
 }
 
 func newKeywordData(tag string) *keywordData {
-	return &keywordData{tag: tag}
+	return &keywordData{tag: tag, data: make([]string, 0)}
+}
+
+func (k *keywordData) Reset() {
+	k.Lock()
+	defer k.Unlock()
+	k.data = make([]string, 0)
 }
 
 func (k *keywordData) ParseFile(r io.Reader) error {
@@ -46,10 +52,10 @@ func (k *keywordData) ParseFile(r io.Reader) error {
 	return nil
 }
 
-func (k *keywordData) ParseLines(lines []string) {
+func (k *keywordData) ParseLines(lines []string, reset bool) {
 	k.Lock()
 	defer k.Unlock()
-	if k.data == nil {
+	if reset {
 		k.data = make([]string, 0)
 	}
 	for _, line := range lines {

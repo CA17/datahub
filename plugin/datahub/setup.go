@@ -58,6 +58,14 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 		i++
 		for c.NextBlock() {
 			switch dir := c.Val(); dir {
+			case "bootstrap":
+				remaining := c.RemainingArgs()
+				plen := len(remaining)
+				if plen == 0 {
+					return nil, c.ArgErr()
+				}
+				d.bootstrap = remaining
+				log.Infof("%s: %v", dir, d.bootstrap)
 			case "geoip_path":
 				remaining := c.RemainingArgs()
 				plen := len(remaining)

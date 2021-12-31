@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/c-robinson/iplib"
-	"github.com/ca17/datahub/plugin/pkg/netutils"
+	"github.com/metaslink/metasdns/plugin/pkg/netutils"
 )
 
 type NetlistData struct {
@@ -16,11 +16,15 @@ type NetlistData struct {
 }
 
 func newNetlistData(tag string) *NetlistData {
-	return &NetlistData{tag: tag}
+	return &NetlistData{tag: tag, data: &netutils.NetList{}}
+}
+
+func (n *NetlistData) Reset() {
+	n.data.Clear()
 }
 
 func (n *NetlistData) ParseFile(r io.Reader) error {
-	n.data = &netutils.NetList{}
+	n.data.Clear()
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -43,9 +47,9 @@ func (n *NetlistData) ParseFile(r io.Reader) error {
 	return nil
 }
 
-func (n *NetlistData) ParseLines(lines []string) {
-	if n.data == nil {
-		n.data = &netutils.NetList{}
+func (n *NetlistData) ParseLines(lines []string, reset bool) {
+	if reset {
+		n.data.Clear()
 	}
 	for _, line := range lines {
 		if i := strings.IndexByte(line, '#'); i >= 0 {
@@ -66,9 +70,6 @@ func (n *NetlistData) ParseLines(lines []string) {
 }
 
 func (n *NetlistData) ParseInline(ws []string) {
-	if n.data == nil {
-		n.data = &netutils.NetList{}
-	}
 	if len(ws) < 2 {
 		fmt.Println("inline len must > 2, format is  tag word...")
 		return

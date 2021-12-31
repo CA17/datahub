@@ -19,5 +19,5 @@ func (dh *Datahub) NotifyMessage(topic string, state *request.Request) {
 	nmsg.QName = state.QName()
 	nmsg.QType = state.Type()
 	nmsg.Class = state.Class()
-	go dh.notifyServer.sendNotify(topic, nmsg)
+	go dh.notifyServer.sendNotify(topic, dh.bootstrap, nmsg)
 }
