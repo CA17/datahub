@@ -68,6 +68,7 @@ func DoRestfulRequest(method, url string, body io.Reader, header map[string]stri
 		}
 		// see: http.DefaultTransport
 		transport = &http.Transport{
+			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 			DialContext:           dialer.DialContext,
 			ExpectContinueTimeout: 1 * time.Second,
 			IdleConnTimeout:       90 * time.Second,
@@ -78,7 +79,7 @@ func DoRestfulRequest(method, url string, body io.Reader, header map[string]stri
 		}
 	} else {
 		transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
 	// 设置超时
