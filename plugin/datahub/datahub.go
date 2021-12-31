@@ -203,18 +203,22 @@ func (dh *Datahub) parseDataTableByTag(datatype string, tag string, from string)
 	switch datatype {
 	case datatable.DateTypeKeywordTable:
 		table := datatable.NewFromArgs(datatable.DateTypeKeywordTable, tag, from)
+		table.SetJwtSecret(dh.jwtSecret)
 		table.LoadAll()
 		dh.keywordTableMap.Set(tag, table)
 	case datatable.DateTypeDomainlistTable:
 		table := datatable.NewFromArgs(datatable.DateTypeDomainlistTable, tag, from)
+		table.SetJwtSecret(dh.jwtSecret)
 		table.LoadAll()
 		dh.domainTableMap.Set(tag, table)
 	case datatable.DateTypeNetlistTable:
 		table := datatable.NewFromArgs(datatable.DateTypeNetlistTable, tag, from)
+		table.SetJwtSecret(dh.jwtSecret)
 		table.LoadAll()
 		dh.netlistTableMap.Set(tag, table)
 	case datatable.DateTypeEcsTable:
 		table := datatable.NewFromArgs(datatable.DateTypeEcsTable, tag, from)
+		table.SetJwtSecret(dh.jwtSecret)
 		table.LoadAll()
 		dh.ecsTableMap.Set(tag, table)
 	}

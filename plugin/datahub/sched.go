@@ -27,7 +27,7 @@ func (dh *Datahub) cronUpdateKeywordTableMap() {
 		item := _item.(*datatable.DataTable)
 		item.LoadFromFile()
 		if dh.jwtSecret != "" {
-			item.LoadFromUrlWithJwt(dh.jwtSecret)
+			item.LoadFromUrl()
 		} else {
 			item.LoadFromUrl()
 		}

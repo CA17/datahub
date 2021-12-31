@@ -45,6 +45,7 @@ type DataTable struct {
 	contentHash uint64
 	tag         string
 	rdata       TextData
+	jwtSecret   string
 }
 
 func NewFromArgs(datatype string, tag string, from string) *DataTable {
@@ -132,21 +133,13 @@ func (kt *DataTable) LoadFromFile() {
 }
 
 func (kt *DataTable) LoadFromUrl() {
-	kt.LoadFromUrlWithJwt("")
-}
-
-func (kt *DataTable) LoadFromUrlWithJwt(jwtsecret string) {
 	if kt.whichType != WhichTypeUrl || len(kt.url) == 0 {
 		return
 	}
 
-	if jwtsecret == "" {
-		jwtsecret = os.Getenv("TEAMSDNS_JWT_SECRET")
-	}
-
 	var token string
-	if jwtsecret != "" {
-		token, _ = common.CreateToken(jwtsecret)
+	if kt.jwtSecret != "" {
+		token, _ = common.CreateToken(kt.jwtSecret)
 	}
 
 	if token != "" {
@@ -206,4 +199,8 @@ func (kt *DataTable) String() string {
 
 func (kt *DataTable) GetData() TextData {
 	return kt.rdata
+}
+
+func (kt *DataTable) SetJwtSecret(s string) {
+	kt.jwtSecret = s
 }
