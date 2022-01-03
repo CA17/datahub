@@ -38,13 +38,13 @@ func TestDatahub_MatchGeosite(t *testing.T) {
 
 func TestDatahub_MatchKeyword(t *testing.T) {
 	dh := NewDatahub()
-	dh.parseDataTableByTag(datatable.DateTypeKeywordTable, "cn", "../../data/keyword_cn.txt")
+	dh.parseDataTableByTag(datatable.DateTypeKeywordTable, []string{"cn"}, "../../data/keyword_cn.txt")
 	t.Log(dh.MatchKeyword("cn", "www.baidu.com"))
 }
 
 func TestDatahub_MatchEcs(t *testing.T) {
 	dh := NewDatahub()
-	dh.parseDataTableByTag(datatable.DateTypeEcsTable, "global", "../../data/ecs_table.txt")
+	dh.parseDataTableByTag(datatable.DateTypeEcsTable, []string{"global"}, "../../data/ecs_table.txt")
 	t.Log(dh.MatchEcs("global", "127.0.0.1"))
 }
 
@@ -74,7 +74,7 @@ func BenchmarkMatchGeositeRegex(b *testing.B) {
 
 func BenchmarkMatchKeyword(b *testing.B) {
 	dh := NewDatahub()
-	dh.parseDataTableByTag(datatable.DateTypeKeywordTable, "cn", "../../data/keyword_cn.txt")
+	dh.parseDataTableByTag(datatable.DateTypeKeywordTable, []string{"cn"}, "../../data/keyword_cn.txt")
 	for n := 0; n < b.N; n++ {
 		dh.MatchKeyword("cn", "www.baidu.com")
 	}
@@ -82,7 +82,7 @@ func BenchmarkMatchKeyword(b *testing.B) {
 
 func BenchmarkMatchEcs(b *testing.B) {
 	dh := NewDatahub()
-	dh.parseDataTableByTag(datatable.DateTypeEcsTable, "global", "../../data/ecs_table.txt")
+	dh.parseDataTableByTag(datatable.DateTypeEcsTable, []string{"global"}, "../../data/ecs_table.txt")
 	for n := 0; n < b.N; n++ {
 		dh.MatchEcs("global", "127.0.0.1")
 	}

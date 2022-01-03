@@ -1,0 +1,9 @@
+keyword_table cn conf/keywords.txt
+keyword_table google conf/keywords.txt
+domain_table cn,aliyun conf/domains.txt
+netlist_table cn,aliyun conf/networks.txt
+ecs_table global conf/ecs_table.txt
+keyword_table msoffice conf/keywords.txt
+domain_table office365,ads https://teamsacs.appsway.cn/teamsdns/domain/list
+netlist_table wjtoffice https://teamsacs.appsway.cn/teamsdns/network/list
+ecs_table global https://teamsacs.appsway.cn/teamsdns/ecstable/list

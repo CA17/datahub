@@ -209,24 +209,36 @@ func (dh *Datahub) parseDataTableByTag(datatype string, tags []string, from stri
 			table.SetBootstrap(dh.bootstrap)
 			table.LoadAll()
 			dh.keywordTableMap.Set(tag, table)
+			dh.keywordTableMap.IterCb(func(k string, v interface{}) {
+				log.Infof("keyword_table %s total %d", k, v.(*datatable.DataTable).Len())
+			})
 		case datatable.DateTypeDomainlistTable:
 			table := datatable.NewFromArgs(datatable.DateTypeDomainlistTable, tag, from)
 			table.SetJwtSecret(dh.jwtSecret)
 			table.SetBootstrap(dh.bootstrap)
 			table.LoadAll()
 			dh.domainTableMap.Set(tag, table)
+			dh.domainTableMap.IterCb(func(k string, v interface{}) {
+				log.Infof("domain_table %s total %d", k, v.(*datatable.DataTable).Len())
+			})
 		case datatable.DateTypeNetlistTable:
 			table := datatable.NewFromArgs(datatable.DateTypeNetlistTable, tag, from)
 			table.SetJwtSecret(dh.jwtSecret)
 			table.SetBootstrap(dh.bootstrap)
 			table.LoadAll()
 			dh.netlistTableMap.Set(tag, table)
+			dh.netlistTableMap.IterCb(func(k string, v interface{}) {
+				log.Infof("netlist_table %s total %d", k, v.(*datatable.DataTable).Len())
+			})
 		case datatable.DateTypeEcsTable:
 			table := datatable.NewFromArgs(datatable.DateTypeEcsTable, tag, from)
 			table.SetJwtSecret(dh.jwtSecret)
 			table.SetBootstrap(dh.bootstrap)
 			table.LoadAll()
 			dh.ecsTableMap.Set(tag, table)
+			dh.ecsTableMap.IterCb(func(k string, v interface{}) {
+				log.Infof("ecs_table %s total %d", k, v.(*datatable.DataTable).Len())
+			})
 		}
 	}
 

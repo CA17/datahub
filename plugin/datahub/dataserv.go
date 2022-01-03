@@ -1,13 +1,13 @@
 package datahub
 
 import (
-	"net/http"
-
+	"encoding/json"
 	"github.com/c-robinson/iplib"
 	"github.com/ca17/datahub/plugin/pkg/common"
 	"github.com/ca17/datahub/plugin/pkg/datatable"
 	"github.com/qiangxue/fasthttp-routing"
 	"github.com/valyala/fasthttp"
+	"net/http"
 )
 
 const (
@@ -103,6 +103,49 @@ func (s *dataServer) listKeywordsBytag(c *routing.Context) error {
 	return nil
 }
 
+// reloadData 重新加载网络地址，域名， 关键词， ecs等信息
+func (s *dataServer) reloadData(c *routing.Context) error {
+	body := c.Request.Body()
+	var dataReq datatable.DataReq
+	err := json.Unmarshal(body, &dataReq)
+	if err != nil {
+		// 设置状态为服务器错误编码
+		c.SetStatusCode(500)
+		_, err = c.WriteString(err.Error())
+		return err
+	}
+
+	// 重载数据domain
+	if dataReq.Domain {
+		s.hub.domainTableMap.IterCb(func(k string, v interface{}) {
+			v.(*datatable.DataTable).LoadAll()
+		})
+	}
+
+	// 重载数据network
+	if dataReq.Network {
+		s.hub.netlistTableMap.IterCb(func(k string, v interface{}) {
+			v.(*datatable.DataTable).LoadAll()
+		})
+	}
+
+	// 重载数据ecs
+	if dataReq.Ecs {
+		s.hub.ecsTableMap.IterCb(func(k string, v interface{}) {
+			v.(*datatable.DataTable).LoadAll()
+		})
+	}
+
+	// 重载数据keyword
+	if dataReq.Keyword {
+		s.hub.keywordTableMap.IterCb(func(k string, v interface{}) {
+			v.(*datatable.DataTable).LoadAll()
+		})
+	}
+	_, err = c.WriteString("ok")
+	return err
+}
+
 func (s *dataServer) start() error {
 	if s.router == nil {
 		s.router = routing.New()
@@ -110,6 +153,7 @@ func (s *dataServer) start() error {
 	s.router.Get("/net/list/<tag>", s.listNetBytag)
 	s.router.Get("/domain/list/<tag>", s.listDomainBytag)
 	s.router.Get("/keyword/list/<tag>", s.listKeywordsBytag)
+	s.router.Post("/reload/data", s.reloadData)
 	s.server = &fasthttp.Server{
 		Handler: s.router.HandleRequest,
 	}

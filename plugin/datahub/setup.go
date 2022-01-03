@@ -1,16 +1,18 @@
 package datahub
 
 import (
-	"net"
-	"strings"
-
-	"github.com/ca17/datahub/plugin/pkg/datatable"
+	"bufio"
+	"github.com/ca17/datahub/plugin/pkg/common"
+	"github.com/ca17/datahub/plugin/pkg/httpc"
 	"github.com/ca17/dnssrc/plugin/pkg/validutil"
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/dnstap"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"net"
+	"os"
+	"strings"
 )
 
 var log = clog.NewWithPlugin("datahub")
@@ -128,46 +130,57 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 				}
 				d.geodatUpgradeCron = cronSpec
 				log.Info("geodat_upgrade_cron ", d.geodatUpgradeCron)
-			case "keyword_table":
+			case "datatables": // parse datatables
 				remaining := c.RemainingArgs()
 				plen := len(remaining)
-				if plen != 2 {
+				if plen != 1 {
 					return nil, c.ArgErr()
 				}
-				d.parseDataTableByTag(datatable.DateTypeKeywordTable, strings.Split(remaining[0], ","), remaining[1])
-				d.keywordTableMap.IterCb(func(k string, v interface{}) {
-					log.Infof("keyword_table %s total %d", k, v.(*datatable.DataTable).Len())
-				})
-			case "domain_table":
-				remaining := c.RemainingArgs()
-				plen := len(remaining)
-				if plen != 2 {
-					return nil, c.Errf("domain_table args num is 2 ")
+				err := parseDataTables(d, remaining[0])
+				if err != nil {
+					return nil, err
 				}
-				d.parseDataTableByTag(datatable.DateTypeDomainlistTable, strings.Split(remaining[0], ","), remaining[1])
-				d.domainTableMap.IterCb(func(k string, v interface{}) {
-					log.Infof("domain_table %s total %d", k, v.(*datatable.DataTable).Len())
-				})
-			case "netlist_table":
-				remaining := c.RemainingArgs()
-				plen := len(remaining)
-				if plen != 2 {
-					return nil, c.ArgErr()
-				}
-				d.parseDataTableByTag(datatable.DateTypeNetlistTable, strings.Split(remaining[0], ","), remaining[1])
-				d.netlistTableMap.IterCb(func(k string, v interface{}) {
-					log.Infof("netlist_table %s total %d", k, v.(*datatable.DataTable).Len())
-				})
-			case "ecs_table":
-				remaining := c.RemainingArgs()
-				plen := len(remaining)
-				if plen != 2 {
-					return nil, c.ArgErr()
-				}
-				d.parseDataTableByTag(datatable.DateTypeEcsTable, strings.Split(remaining[0], ","), remaining[1])
-				d.ecsTableMap.IterCb(func(k string, v interface{}) {
-					log.Infof("ecs_table %s total %d", k, v.(*datatable.DataTable).Len())
-				})
+				// TODO setup阶段xxx_table存在则更新table
+			//case "keyword_table":
+			//	remaining := c.RemainingArgs()
+			//	plen := len(remaining)
+			//	if plen != 2 {
+			//		return nil, c.ArgErr()
+			//	}
+			//	d.parseDataTableByTag(datatable.DateTypeKeywordTable, strings.Split(remaining[0], ","), remaining[1])
+			//	d.keywordTableMap.IterCb(func(k string, v interface{}) {
+			//		log.Infof("keyword_table %s total %d", k, v.(*datatable.DataTable).Len())
+			//	})
+			//case "domain_table":
+			//	remaining := c.RemainingArgs()
+			//	plen := len(remaining)
+			//	if plen != 2 {
+			//		return nil, c.Errf("domain_table args num is 2 ")
+			//	}
+			//	d.parseDataTableByTag(datatable.DateTypeDomainlistTable, strings.Split(remaining[0], ","), remaining[1])
+			//	d.domainTableMap.IterCb(func(k string, v interface{}) {
+			//		log.Infof("domain_table %s total %d", k, v.(*datatable.DataTable).Len())
+			//	})
+			//case "netlist_table":
+			//	remaining := c.RemainingArgs()
+			//	plen := len(remaining)
+			//	if plen != 2 {
+			//		return nil, c.ArgErr()
+			//	}
+			//	d.parseDataTableByTag(datatable.DateTypeNetlistTable, strings.Split(remaining[0], ","), remaining[1])
+			//	d.netlistTableMap.IterCb(func(k string, v interface{}) {
+			//		log.Infof("netlist_table %s total %d", k, v.(*datatable.DataTable).Len())
+			//	})
+			//case "ecs_table":
+			//	remaining := c.RemainingArgs()
+			//	plen := len(remaining)
+			//	if plen != 2 {
+			//		return nil, c.ArgErr()
+			//	}
+			//	d.parseDataTableByTag(datatable.DateTypeEcsTable, strings.Split(remaining[0], ","), remaining[1])
+			//	d.ecsTableMap.IterCb(func(k string, v interface{}) {
+			//		log.Infof("ecs_table %s total %d", k, v.(*datatable.DataTable).Len())
+			//	})
 			case "datapub_listen":
 				remaining := c.RemainingArgs()
 				plen := len(remaining)
@@ -214,4 +227,45 @@ func parseConfig(c *caddy.Controller) (*Datahub, error) {
 		}
 	}
 	return d, nil
+}
+
+// parseDataTables 解析 xx_tables数据
+func parseDataTables(d *Datahub, path string) error {
+	// 解析datatables
+	var lines []string
+	switch {
+	case validutil.IsURL(path):
+		res, err := httpc.Get(path, nil, d.bootstrap, 30)
+		if err != nil {
+			log.Errorf("load datatables from url[%s] error %s", path, err.Error())
+			return err
+		}
+		lines = strings.Split(string(res), "\n")
+	case common.FileExists(path):
+		file, err := os.Open(path)
+		if err != nil {
+			log.Errorf("load datatables error %s", err.Error())
+			return err
+		}
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+			lines = append(lines, line)
+		}
+	default:
+		log.Infof("load datatables, path[%s] cloud not match type[url, file]", path)
+		return nil
+	}
+
+	for _, line := range lines {
+		attrs := strings.Fields(line)
+		if len(attrs) != 3 {
+			log.Errorf("format error: %s", line)
+			continue
+		}
+		datatype, tags, subfrom := attrs[0], attrs[1], attrs[2]
+		args := strings.Split(tags, ",")
+		d.parseDataTableByTag(datatype, args, subfrom)
+	}
+	return nil
 }

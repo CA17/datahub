@@ -20,6 +20,9 @@ func (dh *Datahub) startSched() {
 		dh.dayNetworkChartStat.Update(dh.networkMatchStat)
 	})
 
+	// 远程加载geo数据，并刷新geo缓存
+	dh.updateGeoDataFromRemote()
+
 	dh.sched.Start()
 }
 
@@ -37,4 +40,9 @@ func (dh *Datahub) cronUpdateKeywordTableMap() {
 			item.LoadFromUrl()
 		}
 	}
+}
+
+// updateGeoDataFromRemote 远程加载geoip， geosite数据，并更新geo缓存数据
+func (dh *Datahub) updateGeoDataFromRemote() {
+
 }
